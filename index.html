@@ -363,15 +363,33 @@ async function afterLogin(user){
 }
 
 // ─── Data loading ──────────────────────────────────────────────────
+async function fetchAllRows(table, query){
+  // Fetch in batches of 1000 to bypass Supabase row limit
+  let all = [], from = 0, batchSize = 1000;
+  while(true){
+    const { data, error } = await query(from, from + batchSize - 1);
+    if(error || !data || !data.length) break;
+    all = all.concat(data);
+    if(data.length < batchSize) break;
+    from += batchSize;
+  }
+  return all;
+}
+
 async function loadAll(){
-  const [arts, inv, log, racks, settings] = await Promise.all([
-    sb.from('articles').select('*').order('name').limit(5000),
+  const [inv, log, racks, settings] = await Promise.all([
     sb.from('inventory').select('*').limit(5000),
     sb.from('activity_log').select('*').order('created_at', {ascending:false}).limit(500),
     sb.from('racks').select('*').order('sort_order'),
     sb.from('app_settings').select('*')
   ]);
-  ARTICLES = (arts.data||[]).map(a=>({no:String(a.no),name:a.name||'',grp:a.grp||'',wk:a.weekly_sale||0,minpo:a.min_po||0,price:a.normal_price||0,barcode:a.barcode||''}));
+
+  // Fetch articles in batches to get all 2112+
+  const arts = await fetchAllRows('articles', (from, to) =>
+    sb.from('articles').select('*').order('name').range(from, to)
+  );
+
+  ARTICLES = arts.map(a=>({no:String(a.no),name:a.name||'',grp:a.grp||'',wk:a.weekly_sale||0,minpo:a.min_po||0,price:a.normal_price||0,barcode:a.barcode||''}));
   INV={}; (inv.data||[]).forEach(r=>INV[r.article_no]=r);
   LOG = log.data||[];
   RACKS = racks.data||[];

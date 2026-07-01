@@ -25,20 +25,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{margin:0;font-family:var(--sans);background:var(--gray-soft);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:72px;}
 
-/* AUTH */
-.auth-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--ink);}
-.auth-box{background:var(--paper);border-radius:12px;padding:28px 24px;width:100%;max-width:360px;}
-.auth-logo{font-size:22px;font-weight:900;color:var(--ink);margin-bottom:4px;}
-.auth-sub{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);margin-bottom:24px;}
-.auth-field{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
-.auth-field label{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);}
-.auth-field input{font-family:var(--sans);font-size:15px;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;outline:none;}
-.auth-field input:focus{border-color:var(--ink);}
-.auth-btn{width:100%;font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:13px;border:none;border-radius:6px;background:var(--ink);color:var(--paper);cursor:pointer;font-weight:700;margin-top:6px;}
-.auth-btn:disabled{opacity:.5;cursor:default;}
-.auth-link{font-family:var(--mono);font-size:11px;color:var(--gray);text-align:center;margin-top:14px;cursor:pointer;text-decoration:underline;}
-.auth-err{font-family:var(--mono);font-size:11px;color:var(--red);background:var(--rs);padding:8px 10px;border-radius:6px;margin-top:8px;display:none;}
-.auth-msg{font-family:var(--mono);font-size:11px;color:var(--green);background:var(--gs);padding:8px 10px;border-radius:6px;margin-top:8px;display:none;}
+
 
 /* HEADER */
 header{position:sticky;top:0;z-index:40;background:var(--ink);color:var(--paper);padding:10px 14px env(safe-area-inset-top,0);}
@@ -187,30 +174,16 @@ td .action.red{border-color:var(--red);color:var(--red);}
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
-<div id="authScreen">
-  <div class="auth-wrap">
-    <div class="auth-box">
-      <div class="auth-logo">Bharat Bazar</div>
-      <div class="auth-sub">Inventory Control · Staff Login</div>
-      <div class="auth-field"><label>Email</label><input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email"></div>
-      <div class="auth-field"><label>Password</label><input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
-      <button class="auth-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
-      <div class="auth-err" id="authErr"></div>
-      <div class="auth-msg" id="authMsg"></div>
-      <div class="auth-link" id="forgotLink" onclick="doForgotPassword()">Forgot password?</div>
-    </div>
-  </div>
-</div>
+<div id="authScreen" style="display:none;"></div>
 
 <!-- MAIN APP (hidden until logged in) -->
-<div id="appScreen" style="display:none;">
+<div id="appScreen">
   <header>
     <div class="hdr-row">
       <div><h1 id="hdrStoreName">Inventory Control</h1><span class="tag" id="hdrAddress">Bharat Bazar</span></div>
       <div class="hdr-right">
-        <span class="user-badge" id="hdrUser"></span>
-        <button class="logout-btn" onclick="doLogout()">Sign out</button>
+        
+        
       </div>
     </div>
   </header>
@@ -240,7 +213,7 @@ td .action.red{border-color:var(--red);color:var(--red);}
     <button class="nav-btn" data-page="analytics">
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analytics
     </button>
-    <button class="nav-btn" data-page="admin" id="adminNavBtn" style="display:none;">
+    <button class="nav-btn" data-page="admin" id="adminNavBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M12 14c-5 0-8 2-8 4v1h16v-1c0-2-3-4-8-4z"/></svg>Admin
     </button>
   </nav>
@@ -300,25 +273,7 @@ td .action.red{border-color:var(--red);color:var(--red);}
   </div>
 </div>
 
-<!-- STAFF INVITE SHEET (admin) -->
-<div class="overlay" id="staffOverlay" onclick="closeStaffSheet()"></div>
-<div class="sheet" id="staffSheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-hd"><h3 id="sfTitle">Invite Staff</h3></div>
-  <div class="sheet-body">
-    <div class="field"><label>Full Name *</label><input id="sfName" type="text" placeholder="e.g. Priya Kumar"></div>
-    <div class="field"><label>Email *</label><input id="sfEmail" type="email" placeholder="staff@example.com"></div>
-    <div class="field"><label>Temporary Password *</label><input id="sfPass" type="text" placeholder="they can change it after login"></div>
-    <div class="field"><label>Role</label>
-      <select id="sfRole"><option value="staff">Staff</option><option value="admin">Admin</option></select>
-    </div>
-    <div class="btn-row">
-      <button class="btn gray" onclick="closeStaffSheet()">Cancel</button>
-      <button class="btn primary" onclick="inviteStaff()">Create Account</button>
-    </div>
-    <div id="sfStatus" style="font-family:var(--mono);font-size:11px;margin-top:10px;text-align:center;display:none;padding:8px;border-radius:6px;"></div>
-  </div>
-</div>
+
 
 <!-- SCAN MODAL -->
 <div class="scan-modal" id="scanModal">
@@ -401,7 +356,7 @@ async function afterLogin(user){
   document.getElementById('authScreen').style.display='none';
   document.getElementById('appScreen').style.display='';
   document.getElementById('hdrUser').textContent = profile?.name || user.email;
-  if(isAdmin()) document.getElementById('adminNavBtn').style.display='';
+  document.getElementById('adminNavBtn').style.display='';
   await loadAll();
   updateHeader();
   showPage('articles');
@@ -709,11 +664,11 @@ async function invMark(status){
 
 // ─── ADMIN PANEL ───────────────────────────────────────────────────
 function renderAdmin(el){
-  if(!isAdmin()){ el.innerHTML='<div class="empty">Admin access only.</div>'; return; }
+
   el.innerHTML=`
     <div class="admin-tabs">
       <button class="atab ${adminTab==='articles'?'active':''}" onclick="setAdminTab('articles')">Articles</button>
-      <button class="atab ${adminTab==='staff'?'active':''}" onclick="setAdminTab('staff')">Staff</button>
+
       <button class="atab ${adminTab==='racks'?'active':''}" onclick="setAdminTab('racks')">Racks</button>
       <button class="atab ${adminTab==='settings'?'active':''}" onclick="setAdminTab('settings')">Settings</button>
       <button class="atab ${adminTab==='reports'?'active':''}" onclick="setAdminTab('reports')">Reports</button>
@@ -726,7 +681,7 @@ function setAdminTab(tab){ adminTab=tab; renderPage('admin'); }
 
 function drawAdminTab(el){
   if(adminTab==='articles') drawAdminArticles(el);
-  else if(adminTab==='staff') drawAdminStaff(el);
+
   else if(adminTab==='racks') drawAdminRacks(el);
   else if(adminTab==='settings') drawAdminSettings(el);
   else if(adminTab==='reports') drawAdminReports(el);
@@ -799,44 +754,7 @@ async function deleteArticle(){
   await loadAll(); renderPage(currentPage);
 }
 
-// STAFF ADMIN
-async function drawAdminStaff(el){
-  el.innerHTML='<div class="loading">Loading staff…</div>';
-  const {data:profiles}=await sb.from('profiles').select('*').order('created_at');
-  el.innerHTML=`
-    <button class="fp active" style="margin-bottom:10px;" onclick="openStaffSheet()">+ Invite staff member</button>
-    <div id="staffList"></div>
-  `;
-  const list=el.querySelector('#staffList');
-  if(!profiles?.length){list.innerHTML='<div class="empty">No staff found.</div>';return;}
-  profiles.forEach(p=>{
-    const row=document.createElement('div'); row.className='list-item';
-    row.innerHTML=`<div class="list-info"><div class="list-name">${p.name}</div><div class="list-sub">Role: ${p.role} · ${p.active?'Active':'Inactive'}</div></div><div class="list-right"><span class="chip ${p.role}">${p.role}</span><span class="chip ${p.active?'active':'inactive'}">${p.active?'active':'inactive'}</span></div>`;
-    list.appendChild(row);
-  });
-}
 
-function openStaffSheet(){ document.getElementById('sfName').value=''; document.getElementById('sfEmail').value=''; document.getElementById('sfPass').value=''; document.getElementById('sfStatus').style.display='none'; document.getElementById('staffSheet').classList.add('open'); document.getElementById('staffOverlay').classList.add('open'); }
-function closeStaffSheet(){ document.getElementById('staffSheet').classList.remove('open'); document.getElementById('staffOverlay').classList.remove('open'); }
-
-async function inviteStaff(){
-  const name=document.getElementById('sfName').value.trim();
-  const email=document.getElementById('sfEmail').value.trim();
-  const pass=document.getElementById('sfPass').value;
-  const role=document.getElementById('sfRole').value;
-  if(!name||!email||!pass){snack('All fields required');return;}
-  const statusEl=document.getElementById('sfStatus');
-  statusEl.style.display='block'; statusEl.style.background='var(--gray-soft)'; statusEl.textContent='Creating account…';
-  const {data,error}=await sb.auth.admin?.createUser
-    ? await sb.auth.admin.createUser({email,password:pass,user_metadata:{name,role},email_confirm:true})
-    : await sb.auth.signUp({email,password:pass,options:{data:{name,role}}});
-  if(error){ statusEl.style.background='var(--rs)'; statusEl.style.color='var(--red)'; statusEl.textContent='Error: '+error.message; return; }
-  if(data?.user){
-    await sb.from('profiles').upsert({id:data.user.id,name,role},{onConflict:'id'});
-  }
-  statusEl.style.background='var(--gs)'; statusEl.style.color='var(--green)'; statusEl.textContent=`Account created for ${name}. Share the email + password with them.`;
-  await drawAdminStaff(document.getElementById('adminContent').parentElement);
-}
 
 // RACKS ADMIN
 function drawAdminRacks(el){
@@ -1324,13 +1242,10 @@ document.getElementById('manualBarcode').addEventListener('keydown',e=>{ if(e.ke
 async function doRefresh(){ snack('Refreshing…'); await loadAll(); renderPage(currentPage); }
 
 // ─── INIT ─────────────────────────────────────────────────────────
-sb.auth.onAuthStateChange(async(event, session)=>{
-  if(session?.user && !CURRENT_USER){ await afterLogin(session.user); }
-});
-
 (async()=>{
-  const {data:{session}}=await sb.auth.getSession();
-  if(session?.user){ await afterLogin(session.user); }
+  await loadAll();
+  updateHeader();
+  showPage('articles');
 })();
 </script>
 </body>

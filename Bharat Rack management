@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Inventory">
+<meta name="theme-color" content="#1c1a17">
+<title>Bharat Bazar — Inventory</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --ink:#1c1a17;--paper:#faf7f1;--line:#e2dccf;
+  --green:#3f7a4a;--gs:#e1f0e3;
+  --yellow:#a8791a;--ys:#faf0d6;
+  --red:#b5562f;--rs:#fbe6db;
+  --gray:#8a8275;--gray-soft:#ece8df;
+  --accent:#b5562f;--accent-soft:#f0d9cb;
+  --mono:'Courier New',monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --r:8px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;font-family:var(--sans);background:var(--gray-soft);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:72px;}
+
+/* AUTH */
+.auth-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--ink);}
+.auth-box{background:var(--paper);border-radius:12px;padding:28px 24px;width:100%;max-width:360px;}
+.auth-logo{font-size:22px;font-weight:900;color:var(--ink);margin-bottom:4px;}
+.auth-sub{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);margin-bottom:24px;}
+.auth-field{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
+.auth-field label{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);}
+.auth-field input{font-family:var(--sans);font-size:15px;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;outline:none;}
+.auth-field input:focus{border-color:var(--ink);}
+.auth-btn{width:100%;font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:13px;border:none;border-radius:6px;background:var(--ink);color:var(--paper);cursor:pointer;font-weight:700;margin-top:6px;}
+.auth-btn:disabled{opacity:.5;cursor:default;}
+.auth-link{font-family:var(--mono);font-size:11px;color:var(--gray);text-align:center;margin-top:14px;cursor:pointer;text-decoration:underline;}
+.auth-err{font-family:var(--mono);font-size:11px;color:var(--red);background:var(--rs);padding:8px 10px;border-radius:6px;margin-top:8px;display:none;}
+.auth-msg{font-family:var(--mono);font-size:11px;color:var(--green);background:var(--gs);padding:8px 10px;border-radius:6px;margin-top:8px;display:none;}
+
+/* HEADER */
+header{position:sticky;top:0;z-index:40;background:var(--ink);color:var(--paper);padding:10px 14px env(safe-area-inset-top,0);}
+.hdr-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.hdr-row h1{font-size:15px;margin:0;font-weight:700;}
+.hdr-row .tag{font-family:var(--mono);font-size:9px;color:#aaa;display:block;}
+.hdr-right{display:flex;align-items:center;gap:8px;}
+.user-badge{font-family:var(--mono);font-size:10px;color:#ccc;}
+.admin-chip{font-family:var(--mono);font-size:9px;background:var(--accent);color:#fff;padding:2px 6px;border-radius:8px;text-transform:uppercase;}
+.logout-btn{font-family:var(--mono);font-size:10px;background:transparent;border:1px solid #555;color:#aaa;padding:4px 8px;border-radius:12px;cursor:pointer;}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--ink);border-top:1px solid #333;display:flex;padding-bottom:env(safe-area-inset-bottom,0);}
+.nav-btn{flex:1;padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;color:#777;cursor:pointer;font-family:var(--mono);font-size:9px;text-transform:uppercase;}
+.nav-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.nav-btn.active{color:#fff;}
+
+/* PAGES */
+.page{display:none;padding:12px;max-width:700px;margin:0 auto;}
+.page.active{display:block;}
+.sec{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--gray);margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--line);}
+
+/* CARDS / STATS */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;}
+.stat-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;}
+.stat-card .n{font-size:24px;font-weight:800;line-height:1;}
+.stat-card .l{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);margin-top:3px;}
+.stat-card.green{border-color:var(--green);background:var(--gs);} .stat-card.green .n{color:var(--green);}
+.stat-card.yellow{border-color:var(--yellow);background:var(--ys);} .stat-card.yellow .n{color:var(--yellow);}
+.stat-card.red{border-color:var(--red);background:var(--rs);} .stat-card.red .n{color:var(--red);}
+
+/* RACK TILES */
+.rack-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.rack-tile{background:#fff;border:2px solid var(--line);border-radius:var(--r);padding:14px 12px;cursor:pointer;text-align:center;transition:transform .1s;}
+.rack-tile:active{transform:scale(.97);}
+.rack-tile .rn{font-size:26px;font-weight:900;}
+.rack-tile .rl{font-family:var(--mono);font-size:10px;color:var(--gray);text-transform:uppercase;}
+.rack-tile .rp{font-size:20px;font-weight:800;margin-top:6px;}
+.rack-tile .rb{height:6px;border-radius:3px;background:var(--line);margin-top:5px;overflow:hidden;}
+.rack-tile .rb i{display:block;height:100%;border-radius:3px;}
+.rack-tile .rc{font-family:var(--mono);font-size:9px;color:var(--gray);margin-top:3px;}
+.rack-tile.green{border-color:var(--green);background:var(--gs);} .rack-tile.green .rp{color:var(--green);} .rack-tile.green .rb i{background:var(--green);}
+.rack-tile.yellow{border-color:var(--yellow);background:var(--ys);} .rack-tile.yellow .rp{color:var(--yellow);} .rack-tile.yellow .rb i{background:var(--yellow);}
+.rack-tile.red{border-color:var(--red);background:var(--rs);} .rack-tile.red .rp{color:var(--red);} .rack-tile.red .rb i{background:var(--red);}
+
+/* LISTS */
+.list-item{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:6px;cursor:pointer;}
+.list-item:active{background:var(--gray-soft);}
+.list-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.list-dot.filled{background:var(--green);} .list-dot.low{background:var(--yellow);} .list-dot.out{background:var(--red);} .list-dot.unchecked{background:var(--line);}
+.list-info{flex:1;min-width:0;}
+.list-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.list-sub{font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;}
+.list-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.rack-tag{font-family:var(--mono);font-size:10px;background:var(--gray-soft);padding:2px 6px;border-radius:8px;}
+.arr{color:var(--line);font-size:14px;}
+
+/* GROUP ACCORDION */
+.grp{background:#fff;border:1px solid var(--line);border-radius:var(--r);margin-bottom:6px;overflow:hidden;}
+.grp-h{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;cursor:pointer;gap:8px;}
+.grp-h:active{background:var(--gray-soft);}
+.grp-title{font-size:14px;font-weight:600;flex:1;}
+.grp-meta{display:flex;align-items:center;gap:5px;}
+.grp-dots{display:flex;gap:3px;}
+.grp-dot{width:7px;height:7px;border-radius:50%;}
+.grp-cnt{font-family:var(--mono);font-size:10px;color:var(--gray);}
+.grp-arr{font-size:11px;color:var(--gray);transition:transform .2s;}
+.grp.open .grp-arr{transform:rotate(90deg);}
+.grp-body{display:none;border-top:1px solid var(--line);}
+.grp.open .grp-body{display:block;}
+
+/* SEARCH + FILTERS */
+.search-row{display:flex;gap:6px;margin-bottom:8px;}
+.search-row input{flex:1;font-family:var(--sans);font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:#fff;outline:none;}
+.search-row input:focus{border-color:var(--ink);}
+.icon-btn{width:42px;height:42px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.icon-btn svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.filters{display:flex;gap:5px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none;}
+.filters::-webkit-scrollbar{display:none;}
+.fp{font-family:var(--mono);font-size:10px;text-transform:uppercase;padding:5px 10px;border:1px solid var(--line);background:#fff;border-radius:12px;color:var(--gray);cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.fp.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+
+/* BOTTOM SHEET */
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:none;}
+.overlay.open{display:block;}
+.sheet{position:fixed;bottom:0;left:0;right:0;z-index:51;background:var(--paper);border-radius:16px 16px 0 0;padding:0;max-height:90vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s cubic-bezier(.32,0,.67,0);}
+.sheet.open{transform:translateY(0);}
+.sheet-handle{width:36px;height:4px;background:var(--line);border-radius:2px;margin:10px auto 0;}
+.sheet-hd{padding:12px 16px 10px;border-bottom:1px solid var(--line);}
+.sheet-hd h3{margin:0;font-size:15px;font-weight:700;}
+.sheet-hd p{margin:4px 0 0;font-family:var(--mono);font-size:10px;color:var(--gray);}
+.sheet-body{padding:14px 16px;overflow-y:auto;flex:1;}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.field label{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);}
+.field input,.field select,.field textarea{font-family:var(--sans);font-size:14px;padding:10px;border:1px solid var(--line);border-radius:6px;background:#fff;width:100%;}
+.field input:focus,.field select:focus{outline:none;border-color:var(--ink);}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+.btn{padding:13px;border-radius:var(--r);border:none;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;font-weight:700;}
+.btn.primary{background:var(--ink);color:var(--paper);}
+.btn.green{background:var(--green);color:#fff;}
+.btn.red{background:var(--red);color:#fff;}
+.btn.gray{background:var(--gray-soft);color:var(--ink);}
+.btn.yellow{background:var(--yellow);color:#fff;}
+.status-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;margin-bottom:12px;}
+.status-bar.filled{background:var(--gs);} .status-bar.low{background:var(--ys);} .status-bar.out{background:var(--rs);} .status-bar.unchecked{background:var(--gray-soft);}
+.sb-dot{width:10px;height:10px;border-radius:50%;}
+.status-bar.filled .sb-dot{background:var(--green);} .status-bar.low .sb-dot{background:var(--yellow);} .status-bar.out .sb-dot{background:var(--red);} .status-bar.unchecked .sb-dot{background:var(--gray);}
+.sb-txt{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+.sb-wk{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--gray);}
+
+/* ADMIN TABS */
+.admin-tabs{display:flex;gap:4px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;padding-bottom:4px;}
+.admin-tabs::-webkit-scrollbar{display:none;}
+.atab{font-family:var(--mono);font-size:11px;text-transform:uppercase;padding:7px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;white-space:nowrap;color:var(--gray);}
+.atab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);}
+th,td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;}
+th{background:var(--gray-soft);font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);}
+tr:last-child td{border-bottom:none;}
+td .action{font-family:var(--mono);font-size:10px;padding:3px 7px;border:1px solid var(--line);border-radius:4px;background:#fff;cursor:pointer;margin-right:4px;}
+td .action.red{border-color:var(--red);color:var(--red);}
+
+/* SCAN MODAL */
+.scan-modal{position:fixed;inset:0;z-index:60;background:#000;display:none;flex-direction:column;}
+.scan-modal.open{display:flex;}
+.scan-modal video{flex:1;object-fit:cover;}
+.scan-top{padding:14px;display:flex;justify-content:space-between;align-items:center;}
+.scan-top button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:8px 14px;border-radius:20px;font-family:var(--mono);font-size:12px;cursor:pointer;}
+.scan-hint{color:#fff;font-family:var(--mono);font-size:12px;text-align:center;padding:12px;}
+.reticle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:130px;border:2px solid rgba(255,255,255,.7);border-radius:10px;pointer-events:none;}
+
+/* MISC */
+.empty{text-align:center;padding:32px 16px;color:var(--gray);font-family:var(--mono);font-size:12px;}
+.loading{text-align:center;padding:48px 16px;color:var(--gray);font-family:var(--mono);font-size:12px;}
+.back-btn{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;text-transform:uppercase;padding:7px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px;}
+.chip{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:8px;text-transform:uppercase;}
+.chip.admin{background:var(--accent);color:#fff;}
+.chip.staff{background:var(--gray-soft);color:var(--gray);}
+.chip.active{background:var(--gs);color:var(--green);}
+.chip.inactive{background:var(--rs);color:var(--red);}
+.add-fab{position:fixed;bottom:80px;right:16px;z-index:35;width:48px;height:48px;border-radius:24px;background:var(--ink);color:var(--paper);border:none;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.25);}
+.snackbar{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:20px;display:none;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="auth-logo">Bharat Bazar</div>
+      <div class="auth-sub">Inventory Control · Staff Login</div>
+      <div class="auth-field"><label>Email</label><input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="auth-field"><label>Password</label><input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="auth-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+      <div class="auth-err" id="authErr"></div>
+      <div class="auth-msg" id="authMsg"></div>
+      <div class="auth-link" id="forgotLink" onclick="doForgotPassword()">Forgot password?</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP (hidden until logged in) -->
+<div id="appScreen" style="display:none;">
+  <header>
+    <div class="hdr-row">
+      <div><h1 id="hdrStoreName">Inventory Control</h1><span class="tag" id="hdrAddress">Bharat Bazar</span></div>
+      <div class="hdr-right">
+        <span class="user-badge" id="hdrUser"></span>
+        <button class="logout-btn" onclick="doLogout()">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- PAGES -->
+  <div id="pg-dashboard" class="page active"></div>
+  <div id="pg-map" class="page"></div>
+  <div id="pg-articles" class="page"></div>
+  <div id="pg-admin" class="page"></div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="nav-btn active" data-page="dashboard">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard
+    </button>
+    <button class="nav-btn" data-page="map">
+      <svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>Map
+    </button>
+    <button class="nav-btn" data-page="articles">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>Articles
+    </button>
+    <button class="nav-btn" data-page="admin" id="adminNavBtn" style="display:none;">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M12 14c-5 0-8 2-8 4v1h16v-1c0-2-3-4-8-4z"/></svg>Admin
+    </button>
+  </nav>
+</div>
+
+<!-- INVENTORY DETAIL SHEET -->
+<div class="overlay" id="invOverlay" onclick="closeInvSheet()"></div>
+<div class="sheet" id="invSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hd"><h3 id="isTitle"></h3><p id="isSub"></p></div>
+  <div class="sheet-body">
+    <div class="status-bar unchecked" id="isStatusBar"><div class="sb-dot"></div><div class="sb-txt" id="isStatusTxt">Not checked</div><div class="sb-wk" id="isWk"></div></div>
+    <div class="field"><label>Rack</label><select id="isRack"><option value="">No rack</option></select></div>
+    <div class="field"><label>Qty in rack</label><input type="number" id="isQty" min="0" placeholder="enter quantity"></div>
+    <div class="field"><label>Expiry date</label><input type="date" id="isExpiry"></div>
+    <div class="btn-row">
+      <button class="btn green" onclick="invMark('filled')">✓ Filled</button>
+      <button class="btn red" onclick="invMark('out')">✗ Out of stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ARTICLE EDIT SHEET (admin) -->
+<div class="overlay" id="artOverlay" onclick="closeArtSheet()"></div>
+<div class="sheet" id="artSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hd"><h3 id="asTitle">Article</h3></div>
+  <div class="sheet-body">
+    <div class="field"><label>Article Name *</label><input id="asName" type="text" placeholder="e.g. Basmati Rice 5kg"></div>
+    <div class="field"><label>Article Number *</label><input id="asNo" type="text" placeholder="e.g. 10042"></div>
+    <div class="field"><label>Category / Group</label><input id="asGrp" type="text" placeholder="e.g. Rice & Grains"></div>
+    <div class="field"><label>Weekly sale quantity</label><input id="asWk" type="number" min="0" placeholder="0"></div>
+    <div class="field"><label>Normal price (€)</label><input id="asPrice" type="number" step="0.01" min="0" placeholder="0.00"></div>
+    <div class="field"><label>Barcode</label><input id="asBarcode" type="text" placeholder="EAN barcode"></div>
+    <div class="btn-row">
+      <button class="btn gray" onclick="closeArtSheet()">Cancel</button>
+      <button class="btn primary" id="asSaveBtn" onclick="saveArticle()">Save Article</button>
+    </div>
+    <button class="btn red" id="asDeleteBtn" style="width:100%;margin-top:8px;display:none;" onclick="deleteArticle()">Delete Article</button>
+  </div>
+</div>
+
+<!-- RACK EDIT SHEET (admin) -->
+<div class="overlay" id="rackOverlay" onclick="closeRackSheet()"></div>
+<div class="sheet" id="rackSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hd"><h3 id="rsTitle">Rack</h3></div>
+  <div class="sheet-body">
+    <div class="field"><label>Rack Code *</label><input id="rsCode" type="text" placeholder="e.g. S3" maxlength="6"></div>
+    <div class="field"><label>Rack Label *</label><input id="rsLabel" type="text" placeholder="e.g. Shelf 3"></div>
+    <div class="field"><label>Sort order</label><input id="rsOrder" type="number" min="0" placeholder="0"></div>
+    <div class="btn-row">
+      <button class="btn gray" onclick="closeRackSheet()">Cancel</button>
+      <button class="btn primary" onclick="saveRack()">Save Rack</button>
+    </div>
+    <button class="btn red" id="rsDeleteBtn" style="width:100%;margin-top:8px;display:none;" onclick="deleteRack()">Delete Rack</button>
+  </div>
+</div>
+
+<!-- STAFF INVITE SHEET (admin) -->
+<div class="overlay" id="staffOverlay" onclick="closeStaffSheet()"></div>
+<div class="sheet" id="staffSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hd"><h3 id="sfTitle">Invite Staff</h3></div>
+  <div class="sheet-body">
+    <div class="field"><label>Full Name *</label><input id="sfName" type="text" placeholder="e.g. Priya Kumar"></div>
+    <div class="field"><label>Email *</label><input id="sfEmail" type="email" placeholder="staff@example.com"></div>
+    <div class="field"><label>Temporary Password *</label><input id="sfPass" type="text" placeholder="they can change it after login"></div>
+    <div class="field"><label>Role</label>
+      <select id="sfRole"><option value="staff">Staff</option><option value="admin">Admin</option></select>
+    </div>
+    <div class="btn-row">
+      <button class="btn gray" onclick="closeStaffSheet()">Cancel</button>
+      <button class="btn primary" onclick="inviteStaff()">Create Account</button>
+    </div>
+    <div id="sfStatus" style="font-family:var(--mono);font-size:11px;margin-top:10px;text-align:center;display:none;padding:8px;border-radius:6px;"></div>
+  </div>
+</div>
+
+<!-- SCAN MODAL -->
+<div class="scan-modal" id="scanModal">
+  <div class="scan-top"><span style="color:#fff;font-family:var(--mono);font-size:12px;">SCAN BARCODE</span><button id="closeScanBtn">✕ Close</button></div>
+  <div style="position:relative;flex:1;"><video id="scanVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video><div class="reticle"></div></div>
+  <div class="scan-hint" id="scanHint">Hold barcode inside the frame</div>
+  <input type="text" id="manualBarcode" placeholder="Or type barcode + Enter" style="margin:10px;font-family:var(--mono);font-size:13px;padding:10px;border:1px solid #444;border-radius:6px;background:#111;color:#fff;">
+</div>
+
+<div class="snackbar" id="snackbar"></div>
+
+<script>
+// ─── Supabase init ─────────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(
+  'https://kviymawyfurulohnuewf.supabase.co',
+  'sb_publishable_w3fwxNt4ZMvOXIid6UNXSQ_NPlse-JJ'
+);
+
+// ─── Global state ──────────────────────────────────────────────────
+let CURRENT_USER = null;
+let CURRENT_PROFILE = null;
+let ARTICLES = [], INV = {}, LOG = [], RACKS = [], SETTINGS = {};
+let currentPage = 'dashboard';
+let mapRack = null;
+let artFilter = 'all', artQuery = '';
+let adminTab = 'articles';
+let sheetArticleNo = null;
+let editArticleNo = null;
+let editRackId = null;
+
+const isAdmin = () => CURRENT_PROFILE?.role === 'admin';
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function nowIso(){ return new Date().toISOString(); }
+function barcodes(a){ return (a.barcode||'').split('|').map(s=>s.trim()).filter(Boolean); }
+
+// ─── Snackbar ──────────────────────────────────────────────────────
+function snack(msg, dur=2500){
+  const el = document.getElementById('snackbar');
+  el.textContent = msg; el.style.display = 'block';
+  clearTimeout(snack._t);
+  snack._t = setTimeout(()=>{ el.style.display='none'; }, dur);
+}
+
+// ─── AUTH ──────────────────────────────────────────────────────────
+async function doLogin(){
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPass').value;
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('authErr');
+  errEl.style.display='none';
+  if(!email||!pass){ errEl.textContent='Enter email and password.'; errEl.style.display='block'; return; }
+  btn.disabled=true; btn.textContent='Signing in…';
+  const {data, error} = await sb.auth.signInWithPassword({email, password:pass});
+  if(error){ errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign In'; return; }
+  await afterLogin(data.user);
+}
+
+async function doForgotPassword(){
+  const email = document.getElementById('authEmail').value.trim();
+  if(!email){ document.getElementById('authErr').textContent='Enter your email first.'; document.getElementById('authErr').style.display='block'; return; }
+  const {error} = await sb.auth.resetPasswordForEmail(email);
+  const msgEl = document.getElementById('authMsg');
+  if(error){ document.getElementById('authErr').textContent=error.message; document.getElementById('authErr').style.display='block'; }
+  else { msgEl.textContent='Password reset email sent — check your inbox.'; msgEl.style.display='block'; }
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  CURRENT_USER=null; CURRENT_PROFILE=null;
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('authScreen').style.display='';
+  document.getElementById('authPass').value='';
+}
+
+async function afterLogin(user){
+  CURRENT_USER = user;
+  const {data: profile} = await sb.from('profiles').select('*').eq('id', user.id).single();
+  CURRENT_PROFILE = profile;
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('appScreen').style.display='';
+  document.getElementById('hdrUser').textContent = profile?.name || user.email;
+  if(isAdmin()) document.getElementById('adminNavBtn').style.display='';
+  await loadAll();
+  updateHeader();
+  showPage('dashboard');
+}
+
+// ─── Data loading ──────────────────────────────────────────────────
+async function loadAll(){
+  const [arts, inv, log, racks, settings] = await Promise.all([
+    sb.from('articles').select('*').order('name').limit(5000),
+    sb.from('inventory').select('*').limit(5000),
+    sb.from('activity_log').select('*').order('created_at', {ascending:false}).limit(500),
+    sb.from('racks').select('*').order('sort_order'),
+    sb.from('app_settings').select('*')
+  ]);
+  ARTICLES = (arts.data||[]).map(a=>({no:String(a.no),name:a.name||'',grp:a.grp||'',wk:a.weekly_sale||0,minpo:a.min_po||0,price:a.normal_price||0,barcode:a.barcode||''}));
+  INV={}; (inv.data||[]).forEach(r=>INV[r.article_no]=r);
+  LOG = log.data||[];
+  RACKS = racks.data||[];
+  SETTINGS={}; (settings.data||[]).forEach(s=>SETTINGS[s.key]=s.value);
+}
+
+function updateHeader(){
+  document.getElementById('hdrStoreName').textContent = SETTINGS.store_name||'Inventory Control';
+  document.getElementById('hdrAddress').textContent = SETTINGS.store_address||'';
+}
+
+function getEntry(no){
+  if(!INV[no]) INV[no]={article_no:no,rack:'',status:'unchecked',qty:null,expiry:null};
+  return INV[no];
+}
+async function saveEntry(no,patch){
+  const e=getEntry(no); Object.assign(e,patch);
+  e.updated_by=CURRENT_PROFILE?.name||CURRENT_USER?.email||'unknown';
+  e.updated_at=nowIso();
+  const {error}=await sb.from('inventory').upsert({article_no:no,...e},{onConflict:'article_no'});
+  if(error) snack('Save failed: '+error.message);
+}
+function logAction(no,action,qty){
+  LOG.unshift({article_no:no,staff_name:CURRENT_PROFILE?.name||'?',action,qty:qty??null,created_at:nowIso()});
+  sb.from('activity_log').insert({article_no:no,staff_name:CURRENT_PROFILE?.name||'?',action,qty:qty??null});
+}
+function deriveStatus(e,a){
+  if(e.status==='out') return 'out';
+  if(e.qty===null||e.qty===undefined||e.qty==='') return e.status==='filled'?'filled':'unchecked';
+  const q=Number(e.qty),r=Number(a.wk);
+  if(q<=0)return'out'; if(r>0&&q<r)return'low'; return'filled';
+}
+function rackArticles(code){ return ARTICLES.filter(a=>getEntry(a.no).rack===code); }
+function rackFillPct(code){
+  const items=rackArticles(code); if(!items.length)return null;
+  return Math.round(items.filter(a=>deriveStatus(getEntry(a.no),a)==='filled').length/items.length*100);
+}
+function rackColor(p){ return p===null?'':p>=80?'green':p>=40?'yellow':'red'; }
+
+// ─── Navigation ────────────────────────────────────────────────────
+function showPage(page){
+  currentPage=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+  document.getElementById('pg-'+page).classList.add('active');
+  renderPage(page);
+}
+document.getElementById('bottomNav').addEventListener('click',e=>{
+  const btn=e.target.closest('.nav-btn');
+  if(btn&&btn.dataset.page) showPage(btn.dataset.page);
+});
+
+function renderPage(page){
+  const el=document.getElementById('pg-'+page);
+  if(page==='dashboard') renderDashboard(el);
+  else if(page==='map') renderMap(el);
+  else if(page==='articles') renderArticles(el);
+  else if(page==='admin') renderAdmin(el);
+}
+
+// ─── DASHBOARD ─────────────────────────────────────────────────────
+function renderDashboard(el){
+  let filled=0,low=0,out=0,unc=0;
+  ARTICLES.forEach(a=>{ const s=deriveStatus(getEntry(a.no),a); if(s==='filled')filled++;else if(s==='low')low++;else if(s==='out')out++;else unc++; });
+  const total=ARTICLES.length, pct=total?Math.round((filled+low+out)/total*100):0;
+  el.innerHTML=`
+    <div class="sec">Overview</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${pct}%</div><div class="l">Checked</div></div>
+      <div class="stat-card green"><div class="n">${filled}</div><div class="l">Fully stocked</div></div>
+      <div class="stat-card yellow"><div class="n">${low}</div><div class="l">Low stock</div></div>
+      <div class="stat-card red" style="cursor:pointer;" onclick="artFilter='out';showPage('articles')"><div class="n">${out}</div><div class="l">Out of stock ›</div></div>
+    </div>
+    <div class="sec">Racks</div>
+    <div class="rack-grid" id="dRacks"></div>
+    <div class="sec">Alerts — tap to update</div>
+    <div id="dAlerts"></div>
+    <div class="sec">Staff today</div>
+    <div id="dStaff"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button onclick="doRefresh()" style="flex:1;font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;">↺ Refresh data</button>
+      <button onclick="exportRefill()" style="flex:1;font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;">⬇ Refill CSV</button>
+    </div>
+  `;
+  const rg=el.querySelector('#dRacks');
+  RACKS.forEach(r=>{
+    const p=rackFillPct(r.code),c=rackColor(p);
+    const t=document.createElement('div'); t.className='rack-tile '+(c||'');
+    t.innerHTML=`<div class="rn">${r.code}</div><div class="rl">${r.label}</div><div class="rp">${p===null?'—':p+'%'}</div><div class="rb"><i style="width:${p||0}%"></i></div><div class="rc">${rackArticles(r.code).length} articles</div>`;
+    t.onclick=()=>{ mapRack=r.code; showPage('map'); };
+    rg.appendChild(t);
+  });
+  const al=el.querySelector('#dAlerts');
+  const alerts=ARTICLES.filter(a=>{ const s=deriveStatus(getEntry(a.no),a); return s==='low'||s==='out'; })
+    .sort((a,b)=>(b.wk-(getEntry(b.no).qty||0))-(a.wk-(getEntry(a.no).qty||0))).slice(0,20);
+  if(!alerts.length){ al.innerHTML='<div class="empty" style="padding:8px 0;">No alerts 👍</div>'; }
+  else alerts.forEach(a=>{
+    const e=getEntry(a.no),s=deriveStatus(e,a);
+    const d=document.createElement('div'); d.className='list-item';
+    d.innerHTML=`<div class="list-dot ${s}"></div><div class="list-info"><div class="list-name">${a.name}</div><div class="list-sub">${s==='out'?'OUT OF STOCK':'Low: '+e.qty+'/'+a.wk+' wk'} · ${e.rack||'no rack'}</div></div><div class="arr">›</div>`;
+    d.onclick=()=>openInvSheet(a.no); al.appendChild(d);
+  });
+  const sf=el.querySelector('#dStaff');
+  const counts={}; LOG.filter(l=>(l.created_at||'').slice(0,10)===todayStr()).forEach(l=>counts[l.staff_name]=(counts[l.staff_name]||0)+1);
+  const names=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  if(!names.length){ sf.innerHTML='<div class="empty" style="padding:8px 0;">No activity yet today.</div>'; }
+  else{ const tbl=document.createElement('table'); tbl.innerHTML='<tr><th>Staff member</th><th>Updates today</th></tr>'+names.map(n=>`<tr><td>${n}</td><td>${counts[n]}</td></tr>`).join(''); sf.appendChild(tbl); }
+}
+
+// ─── STORE MAP ─────────────────────────────────────────────────────
+function renderMap(el){
+  if(mapRack){ renderRackView(el,mapRack); return; }
+  el.innerHTML=`<div class="sec">Tap a rack to open checklist</div><div class="rack-grid" id="mapGrid"></div>`;
+  const g=el.querySelector('#mapGrid');
+  RACKS.forEach(r=>{
+    const p=rackFillPct(r.code),c=rackColor(p);
+    const t=document.createElement('div'); t.className='rack-tile '+(c||'');
+    t.innerHTML=`<div class="rn">${r.code}</div><div class="rl">${r.label}</div><div class="rp">${p===null?'—':p+'%'}</div><div class="rb"><i style="width:${p||0}%"></i></div><div class="rc">${rackArticles(r.code).length} articles</div>`;
+    t.onclick=()=>{ mapRack=r.code; renderPage('map'); }; g.appendChild(t);
+  });
+}
+
+function renderRackView(el,code){
+  const rack=RACKS.find(r=>r.code===code)||{code,label:code};
+  const items=rackArticles(code), p=rackFillPct(code);
+  let rf='all',rq='';
+  el.innerHTML=`
+    <button class="back-btn" onclick="mapRack=null;renderPage('map')">← All racks</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span style="font-size:26px;font-weight:900;">${rack.code}</span>
+      <div><div style="font-size:14px;font-weight:600;">${rack.label}</div><div style="font-family:var(--mono);font-size:10px;color:var(--gray);">${items.length} articles · ${p===null?'—':p+'%'} filled</div></div>
+    </div>
+    <div class="filters" id="rackFilters">
+      <button class="fp active" data-f="all">All</button>
+      <button class="fp" data-f="unchecked">Unchecked</button>
+      <button class="fp" data-f="filled">Filled</button>
+      <button class="fp" data-f="low">Low</button>
+      <button class="fp" data-f="out">Out</button>
+    </div>
+    <div class="search-row"><input id="rackSrch" type="text" placeholder="Search this rack…"></div>
+    <div id="rackItems"></div>
+    <div class="sec">Assign articles to ${rack.code}</div>
+    <div class="search-row"><input id="assignSrch" type="text" placeholder="Search to assign here…"></div>
+    <div id="assignItems"></div>
+  `;
+  function drawRack(){
+    const list=el.querySelector('#rackItems'); list.innerHTML='';
+    items.filter(a=>{
+      const s=deriveStatus(getEntry(a.no),a);
+      if(rf!=='all'&&s!==rf)return false;
+      if(rq&&!a.name.toLowerCase().includes(rq)&&!a.no.includes(rq))return false;
+      return true;
+    }).forEach(a=>{ const row=makeArtRow(a); list.appendChild(row); });
+    if(!list.children.length) list.innerHTML='<div class="empty">No articles match.</div>';
+  }
+  el.querySelectorAll('#rackFilters .fp').forEach(p=>{ p.onclick=()=>{ el.querySelectorAll('#rackFilters .fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); rf=p.dataset.f; drawRack(); }; });
+  el.querySelector('#rackSrch').addEventListener('input',e=>{ rq=e.target.value.toLowerCase(); drawRack(); });
+  drawRack();
+  const ai=el.querySelector('#assignItems');
+  el.querySelector('#assignSrch').addEventListener('input',e=>{
+    const q=e.target.value.toLowerCase(); ai.innerHTML='';
+    if(q.length<2){ai.innerHTML='<div class="empty">Type 2+ characters.</div>';return;}
+    const hits=ARTICLES.filter(a=>getEntry(a.no).rack!==code&&(a.name.toLowerCase().includes(q)||a.no.includes(q))).slice(0,12);
+    if(!hits.length){ai.innerHTML='<div class="empty">No matches.</div>';return;}
+    hits.forEach(a=>{
+      const e=getEntry(a.no);
+      const row=document.createElement('div'); row.className='list-item';
+      row.innerHTML=`<div class="list-dot ${deriveStatus(e,a)}"></div><div class="list-info"><div class="list-name">${a.name}</div><div class="list-sub">${e.rack?'Currently: '+e.rack:'Unassigned'}</div></div>`;
+      const btn=document.createElement('button'); btn.className='fp active'; btn.textContent='+ '+code;
+      btn.onclick=async(ev)=>{ ev.stopPropagation(); await saveEntry(a.no,{rack:code}); snack(a.name+' → '+code); renderPage('map'); };
+      row.appendChild(btn); ai.appendChild(row);
+    });
+  });
+}
+
+// ─── ARTICLES PAGE ─────────────────────────────────────────────────
+function renderArticles(el){
+  el.innerHTML=`
+    <div class="search-row">
+      <input id="artSrch" type="text" placeholder="Search ${ARTICLES.length} articles…" value="${artQuery}">
+      <button class="icon-btn" onclick="openScanner()" title="Scan barcode">
+        <svg viewBox="0 0 24 24"><path d="M2 4h2v16H2z"/><path d="M6 4h1v16H6z"/><path d="M9 4h2v16H9z"/><path d="M13 4h1v16h-1z"/><path d="M16 4h2v16h-2z"/><path d="M20 4h2v16h-2z"/></svg>
+      </button>
+      ${isAdmin()?`<button class="icon-btn" onclick="openArtSheet(null)" title="Add article"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`:''}
+    </div>
+    <div class="filters">
+      <button class="fp ${artFilter==='all'?'active':''}" data-f="all">All</button>
+      <button class="fp ${artFilter==='unchecked'?'active':''}" data-f="unchecked">Unchecked</button>
+      <button class="fp ${artFilter==='filled'?'active':''}" data-f="filled">Filled</button>
+      <button class="fp ${artFilter==='low'?'active':''}" data-f="low">Low</button>
+      <button class="fp ${artFilter==='out'?'active':''}" data-f="out">Out of stock</button>
+      <button class="fp ${artFilter==='norack'?'active':''}" data-f="norack">No rack</button>
+    </div>
+    <div id="artList"></div>
+  `;
+  el.querySelector('#artSrch').addEventListener('input',e=>{ artQuery=e.target.value.toLowerCase(); drawArtList(el.querySelector('#artList')); });
+  el.querySelectorAll('.fp').forEach(p=>{ p.onclick=()=>{ artFilter=p.dataset.f; el.querySelectorAll('.fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); drawArtList(el.querySelector('#artList')); }; });
+  drawArtList(el.querySelector('#artList'));
+}
+
+function drawArtList(container){
+  container.innerHTML='';
+  const filtered=ARTICLES.filter(a=>{
+    const e=getEntry(a.no),s=deriveStatus(e,a);
+    if(artFilter==='norack'&&e.rack)return false;
+    if(artFilter!=='all'&&artFilter!=='norack'&&s!==artFilter)return false;
+    if(artQuery&&!a.name.toLowerCase().includes(artQuery)&&!a.no.includes(artQuery)&&!barcodes(a).some(b=>b.includes(artQuery)))return false;
+    return true;
+  });
+  if(!filtered.length){container.innerHTML='<div class="empty">No articles match.</div>';return;}
+  if(artQuery||artFilter!=='all'){
+    filtered.slice(0,150).forEach(a=>container.appendChild(makeArtRow(a)));
+    if(filtered.length>150){ const n=document.createElement('div'); n.className='empty'; n.textContent=`Showing 150 of ${filtered.length} — refine search.`; container.appendChild(n); }
+    return;
+  }
+  const groups={};
+  filtered.forEach(a=>{ if(!groups[a.grp])groups[a.grp]=[]; groups[a.grp].push(a); });
+  Object.keys(groups).sort().forEach(grp=>{
+    const items=groups[grp];
+    const sc={filled:0,low:0,out:0,unchecked:0};
+    items.forEach(a=>{ sc[deriveStatus(getEntry(a.no),a)]++; });
+    const block=document.createElement('div'); block.className='grp';
+    const dots=['filled','low','out','unchecked'].filter(s=>sc[s]>0).map(s=>`<div class="grp-dot" style="background:${s==='filled'?'var(--green)':s==='low'?'var(--yellow)':s==='out'?'var(--red)':'var(--line)'}"></div>`).join('');
+    block.innerHTML=`<div class="grp-h"><div class="grp-title">${grp}</div><div class="grp-meta"><div class="grp-dots">${dots}</div><div class="grp-cnt">${items.length}</div><div class="grp-arr">›</div></div></div><div class="grp-body"></div>`;
+    const body=block.querySelector('.grp-body'); let loaded=false;
+    block.querySelector('.grp-h').onclick=()=>{ block.classList.toggle('open'); if(block.classList.contains('open')&&!loaded){ items.forEach(a=>body.appendChild(makeArtRow(a))); loaded=true; } };
+    container.appendChild(block);
+  });
+}
+
+function makeArtRow(a){
+  const e=getEntry(a.no),s=deriveStatus(e,a);
+  const row=document.createElement('div'); row.className='list-item';
+  row.innerHTML=`<div class="list-dot ${s}"></div><div class="list-info"><div class="list-name">${a.name}</div><div class="list-sub">#${a.no} · wk:${a.wk}${e.qty!=null?' · qty:'+e.qty:''}</div></div><div class="list-right">${e.rack?`<span class="rack-tag">${e.rack}</span>`:''}<span class="arr">›</span></div>`;
+  row.onclick=()=>openInvSheet(a.no);
+  return row;
+}
+
+// ─── INVENTORY BOTTOM SHEET ────────────────────────────────────────
+function populateRackSelect(selectId, val){
+  const sel=document.getElementById(selectId);
+  sel.innerHTML='<option value="">No rack</option>';
+  RACKS.forEach(r=>{ const o=document.createElement('option'); o.value=r.code; o.textContent=r.code+' — '+r.label; if(r.code===val)o.selected=true; sel.appendChild(o); });
+}
+function openInvSheet(no){
+  const a=ARTICLES.find(x=>x.no===no); if(!a)return;
+  const e=getEntry(no),s=deriveStatus(e,a);
+  sheetArticleNo=no;
+  document.getElementById('isTitle').textContent=a.name;
+  document.getElementById('isSub').textContent=`#${a.no} · ${a.grp}`;
+  document.getElementById('isWk').textContent=`wk: ${a.wk}`;
+  const sb2=document.getElementById('isStatusBar');
+  sb2.className='status-bar '+s;
+  document.getElementById('isStatusTxt').textContent=s==='filled'?'Fully stocked':s==='low'?'Low stock':s==='out'?'Out of stock':'Not checked';
+  populateRackSelect('isRack',e.rack||'');
+  document.getElementById('isQty').value=e.qty??'';
+  document.getElementById('isExpiry').value=e.expiry||'';
+  document.getElementById('invSheet').classList.add('open');
+  document.getElementById('invOverlay').classList.add('open');
+}
+function closeInvSheet(){ document.getElementById('invSheet').classList.remove('open'); document.getElementById('invOverlay').classList.remove('open'); sheetArticleNo=null; }
+
+document.getElementById('isRack').onchange=async()=>{ if(!sheetArticleNo)return; await saveEntry(sheetArticleNo,{rack:document.getElementById('isRack').value}); snack('Rack updated'); };
+document.getElementById('isQty').onchange=async()=>{
+  if(!sheetArticleNo)return;
+  const v=document.getElementById('isQty').value;
+  const qty=v===''?null:Number(v);
+  const a=ARTICLES.find(x=>x.no===sheetArticleNo);
+  const st=qty===null?'unchecked':qty<=0?'out':a&&qty<a.wk?'low':'filled';
+  await saveEntry(sheetArticleNo,{qty,status:st}); logAction(sheetArticleNo,'qty_update',qty);
+  const sb3=document.getElementById('isStatusBar'); sb3.className='status-bar '+st;
+  document.getElementById('isStatusTxt').textContent=st==='filled'?'Fully stocked':st==='low'?'Low stock':st==='out'?'Out of stock':'Not checked';
+  snack('Quantity saved');
+};
+document.getElementById('isExpiry').onchange=async()=>{ if(!sheetArticleNo)return; await saveEntry(sheetArticleNo,{expiry:document.getElementById('isExpiry').value||null}); snack('Expiry saved'); };
+
+async function invMark(status){
+  if(!sheetArticleNo)return;
+  const a=ARTICLES.find(x=>x.no===sheetArticleNo);
+  const rack=document.getElementById('isRack').value;
+  const expiry=document.getElementById('isExpiry').value||null;
+  const qty=status==='filled'?(Number(document.getElementById('isQty').value)||a?.wk||1):0;
+  await saveEntry(sheetArticleNo,{status,qty,rack,expiry});
+  logAction(sheetArticleNo,status==='filled'?'filled':'out_of_stock',qty);
+  snack(status==='filled'?'Marked as filled ✓':'Marked out of stock');
+  closeInvSheet(); renderPage(currentPage);
+}
+
+// ─── ADMIN PANEL ───────────────────────────────────────────────────
+function renderAdmin(el){
+  if(!isAdmin()){ el.innerHTML='<div class="empty">Admin access only.</div>'; return; }
+  el.innerHTML=`
+    <div class="admin-tabs">
+      <button class="atab ${adminTab==='articles'?'active':''}" onclick="setAdminTab('articles')">Articles</button>
+      <button class="atab ${adminTab==='staff'?'active':''}" onclick="setAdminTab('staff')">Staff</button>
+      <button class="atab ${adminTab==='racks'?'active':''}" onclick="setAdminTab('racks')">Racks</button>
+      <button class="atab ${adminTab==='settings'?'active':''}" onclick="setAdminTab('settings')">Settings</button>
+      <button class="atab ${adminTab==='reports'?'active':''}" onclick="setAdminTab('reports')">Reports</button>
+    </div>
+    <div id="adminContent"></div>
+  `;
+  drawAdminTab(el.querySelector('#adminContent'));
+}
+function setAdminTab(tab){ adminTab=tab; renderPage('admin'); }
+
+function drawAdminTab(el){
+  if(adminTab==='articles') drawAdminArticles(el);
+  else if(adminTab==='staff') drawAdminStaff(el);
+  else if(adminTab==='racks') drawAdminRacks(el);
+  else if(adminTab==='settings') drawAdminSettings(el);
+  else if(adminTab==='reports') drawAdminReports(el);
+}
+
+// ARTICLES ADMIN
+function drawAdminArticles(el){
+  let q='';
+  el.innerHTML=`
+    <div class="search-row">
+      <input id="adminArtSrch" type="text" placeholder="Search articles…">
+      <button class="icon-btn" onclick="openArtSheet(null)" title="Add article"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+    </div>
+    <div id="adminArtList"></div>
+  `;
+  function draw(){
+    const list=el.querySelector('#adminArtList'); list.innerHTML='';
+    const hits=ARTICLES.filter(a=>!q||a.name.toLowerCase().includes(q)||a.no.includes(q)).slice(0,80);
+    if(!hits.length){list.innerHTML='<div class="empty">No articles match.</div>';return;}
+    hits.forEach(a=>{
+      const row=document.createElement('div'); row.className='list-item';
+      row.innerHTML=`<div class="list-info"><div class="list-name">${a.name}</div><div class="list-sub">#${a.no} · ${a.grp} · wk:${a.wk} · €${a.price}</div></div><span class="arr">›</span>`;
+      row.onclick=()=>openArtSheet(a.no); list.appendChild(row);
+    });
+    if(ARTICLES.filter(a=>!q||a.name.toLowerCase().includes(q)).length>80){ const n=document.createElement('div'); n.className='empty'; n.textContent='Showing 80 results — type to narrow down.'; list.appendChild(n); }
+  }
+  el.querySelector('#adminArtSrch').addEventListener('input',e=>{ q=e.target.value.toLowerCase(); draw(); });
+  draw();
+}
+
+function openArtSheet(no){
+  editArticleNo=no;
+  document.getElementById('asTitle').textContent=no?'Edit Article':'Add Article';
+  const a=no?ARTICLES.find(x=>x.no===no):null;
+  document.getElementById('asName').value=a?.name||'';
+  document.getElementById('asNo').value=a?.no||'';
+  document.getElementById('asGrp').value=a?.grp||'';
+  document.getElementById('asWk').value=a?.wk||'';
+  document.getElementById('asPrice').value=a?.price||'';
+  document.getElementById('asBarcode').value=a?.barcode||'';
+  document.getElementById('asDeleteBtn').style.display=no?'':'none';
+  document.getElementById('artSheet').classList.add('open');
+  document.getElementById('artOverlay').classList.add('open');
+}
+function closeArtSheet(){ document.getElementById('artSheet').classList.remove('open'); document.getElementById('artOverlay').classList.remove('open'); editArticleNo=null; }
+
+async function saveArticle(){
+  const name=document.getElementById('asName').value.trim();
+  const no=document.getElementById('asNo').value.trim();
+  if(!name||!no){snack('Name and article number required');return;}
+  const row={no,name,grp:document.getElementById('asGrp').value.trim(),weekly_sale:Number(document.getElementById('asWk').value)||0,normal_price:Number(document.getElementById('asPrice').value)||0,barcode:document.getElementById('asBarcode').value.trim()};
+  document.getElementById('asSaveBtn').disabled=true;
+  const {error}=editArticleNo
+    ? await sb.from('articles').update(row).eq('no',no)
+    : await sb.from('articles').insert(row);
+  document.getElementById('asSaveBtn').disabled=false;
+  if(error){snack('Error: '+error.message);return;}
+  snack(editArticleNo?'Article updated':'Article added ✓');
+  closeArtSheet();
+  await loadAll(); renderPage(currentPage);
+}
+
+async function deleteArticle(){
+  if(!editArticleNo)return;
+  if(!confirm('Delete this article? This cannot be undone.'))return;
+  const {error}=await sb.from('articles').delete().eq('no',editArticleNo);
+  if(error){snack('Delete failed: '+error.message);return;}
+  snack('Article deleted');
+  closeArtSheet();
+  await loadAll(); renderPage(currentPage);
+}
+
+// STAFF ADMIN
+async function drawAdminStaff(el){
+  el.innerHTML='<div class="loading">Loading staff…</div>';
+  const {data:profiles}=await sb.from('profiles').select('*').order('created_at');
+  el.innerHTML=`
+    <button class="fp active" style="margin-bottom:10px;" onclick="openStaffSheet()">+ Invite staff member</button>
+    <div id="staffList"></div>
+  `;
+  const list=el.querySelector('#staffList');
+  if(!profiles?.length){list.innerHTML='<div class="empty">No staff found.</div>';return;}
+  profiles.forEach(p=>{
+    const row=document.createElement('div'); row.className='list-item';
+    row.innerHTML=`<div class="list-info"><div class="list-name">${p.name}</div><div class="list-sub">Role: ${p.role} · ${p.active?'Active':'Inactive'}</div></div><div class="list-right"><span class="chip ${p.role}">${p.role}</span><span class="chip ${p.active?'active':'inactive'}">${p.active?'active':'inactive'}</span></div>`;
+    list.appendChild(row);
+  });
+}
+
+function openStaffSheet(){ document.getElementById('sfName').value=''; document.getElementById('sfEmail').value=''; document.getElementById('sfPass').value=''; document.getElementById('sfStatus').style.display='none'; document.getElementById('staffSheet').classList.add('open'); document.getElementById('staffOverlay').classList.add('open'); }
+function closeStaffSheet(){ document.getElementById('staffSheet').classList.remove('open'); document.getElementById('staffOverlay').classList.remove('open'); }
+
+async function inviteStaff(){
+  const name=document.getElementById('sfName').value.trim();
+  const email=document.getElementById('sfEmail').value.trim();
+  const pass=document.getElementById('sfPass').value;
+  const role=document.getElementById('sfRole').value;
+  if(!name||!email||!pass){snack('All fields required');return;}
+  const statusEl=document.getElementById('sfStatus');
+  statusEl.style.display='block'; statusEl.style.background='var(--gray-soft)'; statusEl.textContent='Creating account…';
+  const {data,error}=await sb.auth.admin?.createUser
+    ? await sb.auth.admin.createUser({email,password:pass,user_metadata:{name,role},email_confirm:true})
+    : await sb.auth.signUp({email,password:pass,options:{data:{name,role}}});
+  if(error){ statusEl.style.background='var(--rs)'; statusEl.style.color='var(--red)'; statusEl.textContent='Error: '+error.message; return; }
+  if(data?.user){
+    await sb.from('profiles').upsert({id:data.user.id,name,role},{onConflict:'id'});
+  }
+  statusEl.style.background='var(--gs)'; statusEl.style.color='var(--green)'; statusEl.textContent=`Account created for ${name}. Share the email + password with them.`;
+  await drawAdminStaff(document.getElementById('adminContent').parentElement);
+}
+
+// RACKS ADMIN
+function drawAdminRacks(el){
+  el.innerHTML=`
+    <button class="fp active" style="margin-bottom:10px;" onclick="openRackSheet(null)">+ Add rack</button>
+    <div id="rackAdminList"></div>
+  `;
+  const list=el.querySelector('#rackAdminList');
+  if(!RACKS.length){list.innerHTML='<div class="empty">No racks yet.</div>';return;}
+  RACKS.forEach(r=>{
+    const items=rackArticles(r.code);
+    const row=document.createElement('div'); row.className='list-item';
+    row.innerHTML=`<div class="list-info"><div class="list-name"><b>${r.code}</b> — ${r.label}</div><div class="list-sub">${items.length} articles assigned · order: ${r.sort_order}</div></div><span class="arr">›</span>`;
+    row.onclick=()=>openRackSheet(r.id); list.appendChild(row);
+  });
+}
+
+function openRackSheet(id){
+  editRackId=id;
+  const r=id?RACKS.find(x=>x.id===id):null;
+  document.getElementById('rsTitle').textContent=id?'Edit Rack':'Add Rack';
+  document.getElementById('rsCode').value=r?.code||'';
+  document.getElementById('rsLabel').value=r?.label||'';
+  document.getElementById('rsOrder').value=r?.sort_order||RACKS.length+1;
+  document.getElementById('rsDeleteBtn').style.display=id?'':'none';
+  document.getElementById('rackSheet').classList.add('open');
+  document.getElementById('rackOverlay').classList.add('open');
+}
+function closeRackSheet(){ document.getElementById('rackSheet').classList.remove('open'); document.getElementById('rackOverlay').classList.remove('open'); editRackId=null; }
+
+async function saveRack(){
+  const code=document.getElementById('rsCode').value.trim().toUpperCase();
+  const label=document.getElementById('rsLabel').value.trim();
+  if(!code||!label){snack('Code and label required');return;}
+  const row={code,label,sort_order:Number(document.getElementById('rsOrder').value)||0};
+  const {error}=editRackId
+    ? await sb.from('racks').update(row).eq('id',editRackId)
+    : await sb.from('racks').insert(row);
+  if(error){snack('Error: '+error.message);return;}
+  snack(editRackId?'Rack updated':'Rack added ✓');
+  closeRackSheet();
+  await loadAll(); renderPage(currentPage);
+}
+
+async function deleteRack(){
+  if(!editRackId)return;
+  const r=RACKS.find(x=>x.id===editRackId);
+  if(rackArticles(r?.code||'').length>0&&!confirm('This rack has articles assigned. Delete anyway?'))return;
+  const {error}=await sb.from('racks').delete().eq('id',editRackId);
+  if(error){snack('Delete failed: '+error.message);return;}
+  snack('Rack deleted');
+  closeRackSheet();
+  await loadAll(); renderPage(currentPage);
+}
+
+// SETTINGS ADMIN
+function drawAdminSettings(el){
+  el.innerHTML=`
+    <div class="field"><label>Store Name</label><input id="setStoreName" type="text" value="${SETTINGS.store_name||''}"></div>
+    <div class="field"><label>Store Address</label><input id="setAddress" type="text" value="${SETTINGS.store_address||''}"></div>
+    <div class="field"><label>Report Email (default recipient)</label><input id="setEmail" type="email" value="${SETTINGS.report_email||''}"></div>
+    <div class="field"><label>Low stock threshold (fraction of weekly — e.g. 0.8)</label><input id="setThreshold" type="number" step="0.1" min="0" max="1" value="${SETTINGS.low_stock_threshold||'0.8'}"></div>
+    <button class="btn primary" style="width:100%;margin-top:4px;" onclick="saveSettings()">Save Settings</button>
+  `;
+}
+
+async function saveSettings(){
+  const updates=[
+    {key:'store_name',value:document.getElementById('setStoreName').value},
+    {key:'store_address',value:document.getElementById('setAddress').value},
+    {key:'report_email',value:document.getElementById('setEmail').value},
+    {key:'low_stock_threshold',value:document.getElementById('setThreshold').value},
+  ];
+  for(const u of updates){ await sb.from('app_settings').upsert(u,{onConflict:'key'}); SETTINGS[u.key]=u.value; }
+  updateHeader(); snack('Settings saved ✓');
+}
+
+// REPORTS ADMIN
+function drawAdminReports(el){
+  let filled=0,low=0,out=0,unc=0;
+  ARTICLES.forEach(a=>{ const s=deriveStatus(getEntry(a.no),a); if(s==='filled')filled++;else if(s==='low')low++;else if(s==='out')out++;else unc++; });
+  const total=ARTICLES.length, today=todayStr(), tlog=LOG.filter(l=>(l.created_at||'').slice(0,10)===today);
+  el.innerHTML=`
+    <div class="sec">Summary</div>
+    <table><tr><th>Metric</th><th>Count</th></tr>
+      <tr><td>Total articles</td><td>${total}</td></tr>
+      <tr><td>Fully stocked</td><td style="color:var(--green);font-weight:700;">${filled} (${total?Math.round(filled/total*100):0}%)</td></tr>
+      <tr><td>Low stock</td><td style="color:var(--yellow);font-weight:700;">${low}</td></tr>
+      <tr><td>Out of stock</td><td style="color:var(--red);font-weight:700;">${out}</td></tr>
+      <tr><td>Unchecked</td><td>${unc}</td></tr>
+    </table>
+    <div class="sec">By rack</div>
+    <table><tr><th>Rack</th><th>Articles</th><th>Fill %</th></tr>
+      ${RACKS.map(r=>{ const p=rackFillPct(r.code); return `<tr><td><b>${r.code}</b> ${r.label}</td><td>${rackArticles(r.code).length}</td><td>${p===null?'—':p+'%'}</td></tr>`; }).join('')}
+    </table>
+    <div class="sec">Today's log (${tlog.length} updates)</div>
+    <div style="max-height:250px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);">
+      <table><tr><th>Time</th><th>Staff</th><th>Article</th><th>Action</th></tr>
+        ${tlog.slice(0,80).map(l=>{ const a=ARTICLES.find(x=>x.no===l.article_no); return `<tr><td>${(l.created_at||'').slice(11,16)}</td><td>${l.staff_name}</td><td>${a?a.name:l.article_no}</td><td>${l.action}</td></tr>`; }).join('')}
+      </table>
+    </div>
+    <div class="sec">Export</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button onclick="exportRefill()" class="btn gray">Refill list CSV</button>
+      <button onclick="exportFull()" class="btn gray">Full inventory CSV</button>
+    </div>
+  `;
+}
+
+// ─── EXPORTS ──────────────────────────────────────────────────────
+function exportRefill(){
+  const rows=[['Article No','Name','Group','Rack','Weekly Sale','On Hand','Status','Shortfall']];
+  ARTICLES.forEach(a=>{ const e=getEntry(a.no),s=deriveStatus(e,a); if(s==='low'||s==='out'){ const oh=s==='out'?0:(e.qty??0); rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,oh,s,Math.max(0,a.wk-oh)]); } });
+  dlCsv(rows,`refill-${todayStr()}.csv`);
+}
+function exportFull(){
+  const rows=[['Article No','Name','Group','Rack','Weekly Sale','On Hand','Status','Expiry','Updated By','Updated At']];
+  ARTICLES.forEach(a=>{ const e=getEntry(a.no); rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,e.qty??'',deriveStatus(e,a),e.expiry||'',e.updated_by||'',e.updated_at||'']); });
+  dlCsv(rows,`inventory-${todayStr()}.csv`);
+}
+function dlCsv(rows,name){
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=name; a.click();
+}
+
+// ─── BARCODE SCANNER ──────────────────────────────────────────────
+let scanStream=null,scanRaf=null;
+function openScanner(){ document.getElementById('scanModal').classList.add('open'); startScan(); }
+async function startScan(){
+  const hint=document.getElementById('scanHint');
+  if(!('BarcodeDetector' in window)){ hint.textContent='Camera scan not supported here — use text field below.'; return; }
+  try{
+    const det=new BarcodeDetector();
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    const v=document.getElementById('scanVideo'); v.srcObject=scanStream;
+    const loop=async()=>{ try{ const c=await det.detect(v); if(c.length>0){ handleScan(c[0].rawValue); return; } }catch(_){} scanRaf=requestAnimationFrame(loop); };
+    loop();
+  }catch(e){ hint.textContent='Camera error: '+e.message; }
+}
+function stopScan(){ if(scanRaf)cancelAnimationFrame(scanRaf); if(scanStream)scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; document.getElementById('scanModal').classList.remove('open'); }
+function handleScan(code){
+  stopScan();
+  const found=ARTICLES.find(a=>barcodes(a).includes(code.trim()));
+  if(found){ artQuery=''; artFilter='all'; showPage('articles'); setTimeout(()=>openInvSheet(found.no),200); }
+  else snack('Barcode not found: '+code);
+}
+document.getElementById('closeScanBtn').onclick=stopScan;
+document.getElementById('manualBarcode').addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.value.trim()){ handleScan(e.target.value.trim()); e.target.value=''; } });
+
+// ─── REFRESH ──────────────────────────────────────────────────────
+async function doRefresh(){ snack('Refreshing…'); await loadAll(); renderPage(currentPage); }
+
+// ─── INIT ─────────────────────────────────────────────────────────
+sb.auth.onAuthStateChange(async(event, session)=>{
+  if(session?.user && !CURRENT_USER){ await afterLogin(session.user); }
+});
+
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session?.user){ await afterLogin(session.user); }
+})();
+</script>
+</body>
+</html>

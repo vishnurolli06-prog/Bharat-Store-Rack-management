@@ -220,17 +220,25 @@ td .action.red{border-color:var(--red);color:var(--red);}
   <div id="pg-map" class="page"></div>
   <div id="pg-articles" class="page"></div>
   <div id="pg-admin" class="page"></div>
+  <div id="pg-analytics" class="page"></div>
+  <div id="pg-rackcheck" class="page"></div>
 
   <!-- BOTTOM NAV -->
   <nav class="bottom-nav" id="bottomNav">
-    <button class="nav-btn active" data-page="dashboard">
+    <button class="nav-btn" data-page="dashboard">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard
     </button>
     <button class="nav-btn" data-page="map">
       <svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>Map
     </button>
-    <button class="nav-btn" data-page="articles">
+    <button class="nav-btn active" data-page="articles">
       <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>Articles
+    </button>
+    <button class="nav-btn" data-page="rackcheck">
+      <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Rack Check
+    </button>
+    <button class="nav-btn" data-page="analytics">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analytics
     </button>
     <button class="nav-btn" data-page="admin" id="adminNavBtn" style="display:none;">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M12 14c-5 0-8 2-8 4v1h16v-1c0-2-3-4-8-4z"/></svg>Admin
@@ -334,7 +342,7 @@ const sb = createClient(
 let CURRENT_USER = null;
 let CURRENT_PROFILE = null;
 let ARTICLES = [], INV = {}, LOG = [], RACKS = [], SETTINGS = {};
-let currentPage = 'dashboard';
+let currentPage = 'articles';
 let mapRack = null;
 let artFilter = 'all', artQuery = '';
 let adminTab = 'articles';
@@ -396,7 +404,7 @@ async function afterLogin(user){
   if(isAdmin()) document.getElementById('adminNavBtn').style.display='';
   await loadAll();
   updateHeader();
-  showPage('dashboard');
+  showPage('articles');
 }
 
 // ─── Data loading ──────────────────────────────────────────────────
@@ -467,6 +475,8 @@ function renderPage(page){
   else if(page==='map') renderMap(el);
   else if(page==='articles') renderArticles(el);
   else if(page==='admin') renderAdmin(el);
+  else if(page==='analytics') renderAnalytics(el);
+  else if(page==='rackcheck') renderRackCheck(el);
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────────────
@@ -934,6 +944,340 @@ function drawAdminReports(el){
       <button onclick="exportFull()" class="btn gray">Full inventory CSV</button>
     </div>
   `;
+}
+
+
+
+// ─── RACK CHECK PAGE ───────────────────────────────────────────────
+let rcRack = null; // null = show rack selector
+let rcFilter = 'all';
+let rcQuery = '';
+
+function renderRackCheck(el){
+  if(rcRack){ renderRackCheckList(el, rcRack); return; }
+
+  // Compute overall stats per rack
+  el.innerHTML = `
+    <div class="sec">Select a rack to start checking</div>
+    <div id="rcRackGrid"></div>
+    <div class="sec">Overall progress today</div>
+    <div id="rcProgress"></div>
+  `;
+
+  const grid = el.querySelector('#rcRackGrid');
+  RACKS.forEach(r => {
+    const items = rackArticles(r.code);
+    const total = items.length;
+    const filled = items.filter(a => deriveStatus(getEntry(a.no),a) === 'filled').length;
+    const low = items.filter(a => deriveStatus(getEntry(a.no),a) === 'low').length;
+    const out = items.filter(a => deriveStatus(getEntry(a.no),a) === 'out').length;
+    const unchecked = items.filter(a => deriveStatus(getEntry(a.no),a) === 'unchecked').length;
+    const pct = total ? Math.round(filled/total*100) : 0;
+    const color = pct >= 80 ? 'green' : pct >= 40 ? 'yellow' : total > 0 ? 'red' : '';
+
+    const tile = document.createElement('div');
+    tile.style.cssText = 'background:#fff;border:2px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer;';
+    if(color === 'green') tile.style.cssText += 'border-color:var(--green);background:var(--gs);';
+    if(color === 'yellow') tile.style.cssText += 'border-color:var(--yellow);background:var(--ys);';
+    if(color === 'red') tile.style.cssText += 'border-color:var(--red);background:var(--rs);';
+
+    tile.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <span style="font-size:22px;font-weight:900;">${r.code}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--gray);margin-left:8px;">${r.label}</span>
+        </div>
+        <span style="font-size:20px;font-weight:800;color:${color==='green'?'var(--green)':color==='yellow'?'var(--yellow)':color==='red'?'var(--red)':'var(--gray)'};">${pct}%</span>
+      </div>
+      <div style="height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:10px;">
+        <div style="height:100%;width:${pct}%;background:${color==='green'?'var(--green)':color==='yellow'?'var(--yellow)':color==='red'?'var(--red)':'var(--gray)'};border-radius:4px;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center;">
+        <div style="background:var(--gs);border-radius:4px;padding:4px;"><div style="font-weight:700;font-size:14px;color:var(--green);">${filled}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">FILLED</div></div>
+        <div style="background:var(--ys);border-radius:4px;padding:4px;"><div style="font-weight:700;font-size:14px;color:var(--yellow);">${low}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">LOW</div></div>
+        <div style="background:var(--rs);border-radius:4px;padding:4px;"><div style="font-weight:700;font-size:14px;color:var(--red);">${out}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">OUT</div></div>
+        <div style="background:var(--gray-soft);border-radius:4px;padding:4px;"><div style="font-weight:700;font-size:14px;color:var(--gray);">${unchecked}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">TODO</div></div>
+      </div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--gray);text-align:center;">${total} articles total · tap to open checklist →</div>
+    `;
+    tile.onclick = () => { rcRack = r.code; renderPage('rackcheck'); };
+    grid.appendChild(tile);
+  });
+
+  // Overall progress
+  const prog = el.querySelector('#rcProgress');
+  const allTotal = ARTICLES.length;
+  let allFilled=0, allLow=0, allOut=0, allUnc=0;
+  ARTICLES.forEach(a => {
+    const s = deriveStatus(getEntry(a.no),a);
+    if(s==='filled')allFilled++;else if(s==='low')allLow++;else if(s==='out')allOut++;else allUnc++;
+  });
+  const allPct = allTotal ? Math.round((allFilled+allLow+allOut)/allTotal*100) : 0;
+  prog.innerHTML = `
+    <div style="background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-family:var(--mono);font-size:11px;">Overall checklist</span>
+        <span style="font-family:var(--mono);font-size:11px;font-weight:700;">${allPct}% checked</span>
+      </div>
+      <div style="height:10px;background:var(--line);border-radius:5px;overflow:hidden;">
+        <div style="height:100%;width:${allPct}%;background:var(--green);border-radius:5px;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:10px;text-align:center;">
+        <div><div style="font-weight:700;color:var(--green);">${allFilled}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">FILLED</div></div>
+        <div><div style="font-weight:700;color:var(--yellow);">${allLow}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">LOW</div></div>
+        <div><div style="font-weight:700;color:var(--red);">${allOut}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">OUT</div></div>
+        <div><div style="font-weight:700;color:var(--gray);">${allUnc}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">UNCHECKED</div></div>
+      </div>
+    </div>
+    <button onclick="exportRefill()" style="width:100%;margin-top:8px;font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;">⬇ Export refill list CSV</button>
+  `;
+}
+
+function renderRackCheckList(el, rackCode){
+  const rack = RACKS.find(r=>r.code===rackCode) || {code:rackCode, label:rackCode};
+  let items = rackArticles(rackCode);
+  const total = items.length;
+  const filled = items.filter(a=>deriveStatus(getEntry(a.no),a)==='filled').length;
+  const pct = total ? Math.round(filled/total*100) : 0;
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <button class="back-btn" onclick="rcRack=null;renderPage('rackcheck')">← Racks</button>
+      <div style="flex:1;">
+        <div style="font-size:18px;font-weight:900;">${rack.code} <span style="font-size:13px;font-weight:400;color:var(--gray);">${rack.label}</span></div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--gray);">${filled}/${total} filled · ${pct}%</div>
+      </div>
+    </div>
+    <div style="height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:10px;">
+      <div style="height:100%;width:${pct}%;background:${pct>=80?'var(--green)':pct>=40?'var(--yellow)':'var(--red)'};border-radius:4px;transition:width .3s;"></div>
+    </div>
+    <div class="filters" id="rcFilters">
+      <button class="fp active" data-f="all">All (${total})</button>
+      <button class="fp" data-f="unchecked">Todo (${items.filter(a=>deriveStatus(getEntry(a.no),a)==='unchecked').length})</button>
+      <button class="fp" data-f="filled">Filled (${filled})</button>
+      <button class="fp" data-f="low">Low (${items.filter(a=>deriveStatus(getEntry(a.no),a)==='low').length})</button>
+      <button class="fp" data-f="out">Out (${items.filter(a=>deriveStatus(getEntry(a.no),a)==='out').length})</button>
+    </div>
+    <div class="search-row">
+      <input id="rcSearch" type="text" placeholder="Search in ${rack.code}…">
+    </div>
+    <div id="rcList"></div>
+  `;
+
+  let rf = 'all', rq = '';
+
+  function drawList(){
+    const list = el.querySelector('#rcList');
+    list.innerHTML = '';
+    const filtered = items.filter(a => {
+      const s = deriveStatus(getEntry(a.no),a);
+      if(rf !== 'all' && s !== rf) return false;
+      if(rq && !a.name.toLowerCase().includes(rq) && !a.no.includes(rq)) return false;
+      return true;
+    });
+    if(!filtered.length){ list.innerHTML='<div class="empty">No articles match.</div>'; return; }
+
+    filtered.forEach(a => {
+      const e = getEntry(a.no);
+      const s = deriveStatus(e, a);
+      const colors = {filled:'var(--green)',low:'var(--yellow)',out:'var(--red)',unchecked:'var(--line)'};
+      const bgColors = {filled:'var(--gs)',low:'var(--ys)',out:'var(--rs)',unchecked:'#fff'};
+
+      const row = document.createElement('div');
+      row.style.cssText = `background:${bgColors[s]};border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;`;
+      if(s==='filled') row.style.borderColor='var(--green)';
+      if(s==='low') row.style.borderColor='var(--yellow)';
+      if(s==='out') row.style.borderColor='var(--red)';
+
+      row.innerHTML = `
+        <div style="width:28px;height:28px;border-radius:50%;border:2px solid ${colors[s]};background:${s==='filled'?colors[s]:'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;" id="chk-${a.no}">
+          ${s==='filled'?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':''}
+        </div>
+        <div style="flex:1;min-width:0;cursor:pointer;">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;">#${a.no} · wk: ${a.wk}${e.qty!=null?' · qty: '+e.qty:' · qty: —'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;">
+          <span style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:8px;background:${colors[s]};color:${s==='unchecked'?'var(--gray)':'#fff'};text-transform:uppercase;">${s}</span>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--gray);">need ${a.wk}/wk</span>
+        </div>
+      `;
+
+      // tap anywhere on row → open detail sheet
+      row.onclick = (ev) => {
+        if(!ev.target.closest(`#chk-${a.no}`)) { openInvSheet(a.no); return; }
+        // tap the circle → quick toggle filled/unchecked
+        if(s === 'filled'){
+          saveEntry(a.no, {status:'unchecked', qty:null}).then(()=>{ logAction(a.no,'unchecked',null); drawList(); });
+        } else {
+          saveEntry(a.no, {status:'filled', qty: a.wk||1}).then(()=>{ logAction(a.no,'filled',a.wk||1); drawList(); });
+        }
+      };
+      list.appendChild(row);
+    });
+  }
+
+  el.querySelectorAll('#rcFilters .fp').forEach(p=>{
+    p.onclick=()=>{ rf=p.dataset.f; el.querySelectorAll('#rcFilters .fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); drawList(); };
+  });
+  el.querySelector('#rcSearch').addEventListener('input', e=>{ rq=e.target.value.toLowerCase(); drawList(); });
+  drawList();
+}
+
+
+// ─── ANALYTICS PAGE ────────────────────────────────────────────────
+let analyticsSort = 'revenue_desc';
+let analyticsFilter = 'all';
+let analyticsQuery = '';
+let ANALYTICS_DATA = [];
+
+async function loadAnalytics(){
+  const { data, error } = await sb.from('article_analytics').select('*').limit(5000);
+  if(error){ ANALYTICS_DATA = []; return; }
+  ANALYTICS_DATA = data || [];
+}
+
+function renderAnalytics(el){
+  el.innerHTML = '<div class="loading">Loading analytics…</div>';
+  loadAnalytics().then(() => drawAnalytics(el));
+}
+
+function drawAnalytics(el){
+  const totalRevenue = ANALYTICS_DATA.reduce((s,a)=>s+(a.revenue_per_week||0),0);
+  const totalAtRisk = ANALYTICS_DATA.reduce((s,a)=>s+(a.revenue_at_risk||0),0);
+  const totalQty = ANALYTICS_DATA.reduce((s,a)=>s+(a.weekly_sale||0),0);
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card green"><div class="n">€${Math.round(totalRevenue).toLocaleString()}</div><div class="l">Weekly revenue (all)</div></div>
+      <div class="stat-card red"><div class="n">€${Math.round(totalAtRisk).toLocaleString()}</div><div class="l">Revenue at risk</div></div>
+      <div class="stat-card"><div class="n">${totalQty.toLocaleString()}</div><div class="l">Units sold / week</div></div>
+      <div class="stat-card yellow"><div class="n">${ANALYTICS_DATA.filter(a=>a.revenue_at_risk>0).length}</div><div class="l">Articles at risk</div></div>
+    </div>
+
+    <div class="sec">Sort & filter articles</div>
+    <div class="filters" id="sortPills">
+      <button class="fp ${analyticsSort==='revenue_desc'?'active':''}" data-s="revenue_desc">💰 Revenue ↓</button>
+      <button class="fp ${analyticsSort==='revenue_asc'?'active':''}" data-s="revenue_asc">💰 Revenue ↑</button>
+      <button class="fp ${analyticsSort==='qty_desc'?'active':''}" data-s="qty_desc">📦 Qty sold ↓</button>
+      <button class="fp ${analyticsSort==='qty_asc'?'active':''}" data-s="qty_asc">📦 Qty sold ↑</button>
+      <button class="fp ${analyticsSort==='risk_desc'?'active':''}" data-s="risk_desc">⚠️ At risk ↓</button>
+      <button class="fp ${analyticsSort==='name_asc'?'active':''}" data-s="name_asc">A–Z Name</button>
+    </div>
+    <div class="filters" id="statusPills">
+      <button class="fp ${analyticsFilter==='all'?'active':''}" data-f="all">All</button>
+      <button class="fp ${analyticsFilter==='out'?'active':''}" data-f="out">Out of stock</button>
+      <button class="fp ${analyticsFilter==='low'?'active':''}" data-f="low">Low stock</button>
+      <button class="fp ${analyticsFilter==='filled'?'active':''}" data-f="filled">Filled</button>
+      <button class="fp ${analyticsFilter==='unchecked'?'active':''}" data-f="unchecked">Unchecked</button>
+    </div>
+    <div class="search-row" style="margin-top:6px;">
+      <input id="analyticsSearch" type="text" placeholder="Search articles…" value="${analyticsQuery}">
+    </div>
+    <div id="analyticsTable"></div>
+  `;
+
+  // sort pill events
+  el.querySelectorAll('#sortPills .fp').forEach(p=>{
+    p.onclick=()=>{ analyticsSort=p.dataset.s; drawAnalyticsTable(el.querySelector('#analyticsTable')); el.querySelectorAll('#sortPills .fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); };
+  });
+  // filter pill events
+  el.querySelectorAll('#statusPills .fp').forEach(p=>{
+    p.onclick=()=>{ analyticsFilter=p.dataset.f; drawAnalyticsTable(el.querySelector('#analyticsTable')); el.querySelectorAll('#statusPills .fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); };
+  });
+  // search
+  el.querySelector('#analyticsSearch').addEventListener('input',e=>{ analyticsQuery=e.target.value.toLowerCase(); drawAnalyticsTable(el.querySelector('#analyticsTable')); });
+
+  drawAnalyticsTable(el.querySelector('#analyticsTable'));
+}
+
+function drawAnalyticsTable(container){
+  let data = [...ANALYTICS_DATA];
+
+  // filter by status
+  if(analyticsFilter !== 'all') data = data.filter(a => a.inv_status === analyticsFilter);
+
+  // filter by search
+  if(analyticsQuery) data = data.filter(a =>
+    (a.name||'').toLowerCase().includes(analyticsQuery) ||
+    (a.no||'').includes(analyticsQuery) ||
+    (a.grp||'').toLowerCase().includes(analyticsQuery)
+  );
+
+  // sort
+  const sorts = {
+    revenue_desc: (a,b)=>(b.revenue_per_week||0)-(a.revenue_per_week||0),
+    revenue_asc:  (a,b)=>(a.revenue_per_week||0)-(b.revenue_per_week||0),
+    qty_desc:     (a,b)=>(b.weekly_sale||0)-(a.weekly_sale||0),
+    qty_asc:      (a,b)=>(a.weekly_sale||0)-(b.weekly_sale||0),
+    risk_desc:    (a,b)=>(b.revenue_at_risk||0)-(a.revenue_at_risk||0),
+    name_asc:     (a,b)=>(a.name||'').localeCompare(b.name||''),
+  };
+  data.sort(sorts[analyticsSort] || sorts.revenue_desc);
+
+  container.innerHTML = '';
+
+  if(!data.length){ container.innerHTML='<div class="empty">No articles match.</div>'; return; }
+
+  const statusColor = { filled:'var(--green)', low:'var(--yellow)', out:'var(--red)', unchecked:'var(--gray)' };
+
+  // show top 100, with load more
+  const show = data.slice(0, 100);
+
+  show.forEach((a,i) => {
+    const row = document.createElement('div');
+    row.className = 'list-item';
+    row.style.flexDirection = 'column';
+    row.style.alignItems = 'flex-start';
+    row.style.gap = '4px';
+    row.style.cursor = 'pointer';
+    const sc = statusColor[a.inv_status] || 'var(--gray)';
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--gray);width:22px;flex-shrink:0;">${i+1}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;">${a.grp} · #${a.no}${a.rack?' · '+a.rack:''}</div>
+        </div>
+        <div style="width:8px;height:8px;border-radius:50%;background:${sc};flex-shrink:0;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;padding-left:30px;">
+        <div style="background:var(--gs);border-radius:4px;padding:4px 6px;text-align:center;">
+          <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green);">€${(a.revenue_per_week||0).toFixed(0)}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--gray);">wk revenue</div>
+        </div>
+        <div style="background:var(--gray-soft);border-radius:4px;padding:4px 6px;text-align:center;">
+          <div style="font-family:var(--mono);font-size:11px;font-weight:700;">${a.weekly_sale||0}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--gray);">units/wk</div>
+        </div>
+        <div style="background:${(a.revenue_at_risk||0)>0?'var(--rs)':'var(--gray-soft)'};border-radius:4px;padding:4px 6px;text-align:center;">
+          <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:${(a.revenue_at_risk||0)>0?'var(--red)':'var(--gray)'};">€${(a.revenue_at_risk||0).toFixed(0)}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--gray);">at risk</div>
+        </div>
+      </div>
+    `;
+    row.onclick = () => openInvSheet(a.no);
+    container.appendChild(row);
+  });
+
+  if(data.length > 100){
+    const note = document.createElement('div');
+    note.className = 'empty';
+    note.textContent = `Showing 100 of ${data.length} — use search or filter to narrow down.`;
+    container.appendChild(note);
+  }
+
+  // export button
+  const expBtn = document.createElement('button');
+  expBtn.className = 'btn gray';
+  expBtn.style.cssText = 'width:100%;margin-top:12px;';
+  expBtn.textContent = `⬇ Export this list (${data.length} articles) as CSV`;
+  expBtn.onclick = () => {
+    const rows = [['Rank','Article No','Name','Group','Rack','Weekly Sale (units)','Price (€)','Weekly Revenue (€)','Annual Revenue (€)','Status','Qty in Rack','Shortfall','Revenue at Risk (€)']];
+    data.forEach((a,i) => rows.push([i+1,a.no,a.name,a.grp,a.rack||'',a.weekly_sale||0,a.normal_price||0,(a.revenue_per_week||0).toFixed(2),(a.revenue_per_year||0).toFixed(2),a.inv_status,a.qty_in_rack||0,a.weekly_shortfall||0,(a.revenue_at_risk||0).toFixed(2)]));
+    dlCsv(rows, `analytics-${todayStr()}.csv`);
+  };
+  container.appendChild(expBtn);
 }
 
 // ─── EXPORTS ──────────────────────────────────────────────────────

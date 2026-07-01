@@ -169,6 +169,19 @@ td .action.red{border-color:var(--red);color:var(--red);}
 .chip.active{background:var(--gs);color:var(--green);}
 .chip.inactive{background:var(--rs);color:var(--red);}
 .add-fab{position:fixed;bottom:80px;right:16px;z-index:35;width:48px;height:48px;border-radius:24px;background:var(--ink);color:var(--paper);border:none;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.25);}
+.fill-btn{flex:1;padding:10px 6px;border:2px solid var(--line);border-radius:6px;background:#fff;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;font-weight:700;transition:all .1s;}
+.fill-btn:active{transform:scale(.96);}
+.fill-btn.yes{background:var(--green);border-color:var(--green);color:#fff;}
+.fill-btn.half{background:var(--yellow);border-color:var(--yellow);color:#fff;}
+.fill-btn.no{background:var(--red);border-color:var(--red);color:#fff;}
+.fill-btn.yes-sel{border-color:var(--green);color:var(--green);}
+.fill-btn.half-sel{border-color:var(--yellow);color:var(--yellow);}
+.fill-btn.no-sel{border-color:var(--red);color:var(--red);}
+.week-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px;overflow:hidden;}
+.week-card-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;}
+.week-stat{text-align:center;}
+.week-stat .wn{font-size:18px;font-weight:800;}
+.week-stat .wl{font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--gray);}
 .snackbar{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:20px;display:none;white-space:nowrap;}
 </style>
 </head>
@@ -195,11 +208,15 @@ td .action.red{border-color:var(--red);color:var(--red);}
   <div id="pg-admin" class="page"></div>
   <div id="pg-analytics" class="page"></div>
   <div id="pg-rackcheck" class="page"></div>
+  <div id="pg-weekly" class="page"></div>
 
   <!-- BOTTOM NAV -->
   <nav class="bottom-nav" id="bottomNav">
     <button class="nav-btn" data-page="dashboard">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard
+    </button>
+    <button class="nav-btn" data-page="weekly">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Weekly
     </button>
     <button class="nav-btn" data-page="map">
       <svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>Map
@@ -450,6 +467,7 @@ function renderPage(page){
   else if(page==='admin') renderAdmin(el);
   else if(page==='analytics') renderAnalytics(el);
   else if(page==='rackcheck') renderRackCheck(el);
+  else if(page==='weekly') renderWeekly(el);
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────────────
@@ -879,9 +897,362 @@ function drawAdminReports(el){
       <button onclick="exportRefill()" class="btn gray">Refill list CSV</button>
       <button onclick="exportFull()" class="btn gray">Full inventory CSV</button>
     </div>
-  `;
+    <button onclick="exportRackAssignment()" style="width:100%;margin-top:8px;padding:13px;border:none;border-radius:var(--r);background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;letter-spacing:.04em;">📋 Download Rack Assignment Report</button>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:5px;padding:0 2px;">Every article grouped by rack S1 / S2 / G1 / G2 with status and quantity. Open in Excel.</div>
+  \`;
 }
 
+
+
+
+// ─── WEEKLY CHECK ──────────────────────────────────────────────────
+let weeklySession = null;       // current session object
+let weeklyItems = {};           // article_no -> {fill_status, ...}
+let weeklyLoaded = false;
+let weeklyRackFilter = 'ALL';
+let weeklyStatusFilter = 'all';
+let weeklySearchQ = '';
+
+function getWeekStart(d = new Date()){
+  const day = d.getDay(), diff = d.getDate() - day + (day===0?-6:1);
+  const mon = new Date(d); mon.setDate(diff); mon.setHours(0,0,0,0);
+  return mon;
+}
+function weekLabel(d){ const w = getWeekNumber(d); return `W${w} ${d.getFullYear()}`; }
+function getWeekNumber(d){
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay()||7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1)/7);
+}
+function fmtDate(d){ return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+
+async function loadWeeklySession(){
+  const weekStart = getWeekStart().toISOString().slice(0,10);
+  // Check if session exists for this week
+  const {data:sessions} = await sb.from('weekly_check_sessions').select('*').eq('week_start', weekStart).limit(1);
+  if(sessions && sessions.length > 0){
+    weeklySession = sessions[0];
+    // Load items for this session
+    const {data:items} = await sb.from('weekly_check_items').select('*').eq('session_id', weeklySession.id);
+    weeklyItems = {};
+    (items||[]).forEach(i => weeklyItems[i.article_no] = i);
+  } else {
+    weeklySession = null;
+    weeklyItems = {};
+  }
+  weeklyLoaded = true;
+}
+
+async function startWeeklyCheck(){
+  const weekStart = getWeekStart();
+  const weekStartStr = weekStart.toISOString().slice(0,10);
+  const label = weekLabel(weekStart);
+
+  // Create session
+  const {data, error} = await sb.from('weekly_check_sessions').insert({
+    week_start: weekStartStr,
+    week_label: label,
+    checked_by: CURRENT_PROFILE?.name || 'unknown',
+    total_articles: ARTICLES.length,
+    unchecked_count: ARTICLES.length
+  }).select().single();
+  if(error){ snack('Error: ' + error.message); return; }
+
+  weeklySession = data;
+  weeklyItems = {};
+
+  // Pre-create all items for this session
+  const batch = ARTICLES.map(a => ({
+    session_id: weeklySession.id,
+    week_start: weekStartStr,
+    article_no: a.no,
+    article_name: a.name,
+    rack: getEntry(a.no).rack || '',
+    grp: a.grp,
+    weekly_sale: a.wk,
+    price: a.price || 0,
+    fill_status: 'unchecked',
+    revenue_at_risk: a.wk * (a.price || 0)
+  }));
+
+  // Insert in batches of 500
+  for(let i=0; i<batch.length; i+=500){
+    await sb.from('weekly_check_items').insert(batch.slice(i, i+500));
+  }
+
+  // Reload items
+  const {data:items} = await sb.from('weekly_check_items').select('*').eq('session_id', weeklySession.id);
+  weeklyItems = {};
+  (items||[]).forEach(it => weeklyItems[it.article_no] = it);
+
+  renderPage('weekly');
+}
+
+async function markWeeklyItem(articleNo, status){
+  if(!weeklySession) return;
+  const a = ARTICLES.find(x=>x.no===articleNo);
+  if(!a) return;
+
+  const risk = status==='yes' ? 0 : status==='half' ? (a.wk * (a.price||0) * 0.5) : (a.wk * (a.price||0));
+
+  // Update in DB
+  const {error} = await sb.from('weekly_check_items')
+    .update({ fill_status: status, checked_by: CURRENT_PROFILE?.name||'unknown', checked_at: new Date().toISOString(), revenue_at_risk: risk })
+    .eq('session_id', weeklySession.id)
+    .eq('article_no', articleNo);
+
+  if(!error){
+    if(!weeklyItems[articleNo]) weeklyItems[articleNo] = {};
+    weeklyItems[articleNo].fill_status = status;
+    weeklyItems[articleNo].revenue_at_risk = risk;
+    updateSessionStats();
+  }
+}
+
+async function updateSessionStats(){
+  const vals = Object.values(weeklyItems);
+  const filled = vals.filter(i=>i.fill_status==='yes').length;
+  const half = vals.filter(i=>i.fill_status==='half').length;
+  const empty = vals.filter(i=>i.fill_status==='no').length;
+  const unc = vals.filter(i=>i.fill_status==='unchecked').length;
+  const total = ARTICLES.length;
+  const fillPct = total ? ((filled + half*0.5) / total * 100) : 0;
+  const risk = vals.reduce((s,i)=>s+(i.revenue_at_risk||0),0);
+
+  await sb.from('weekly_check_sessions').update({
+    filled_count: filled, half_count: half, empty_count: empty,
+    unchecked_count: unc, fill_pct: fillPct, revenue_at_risk: risk,
+    completed: unc === 0, completed_at: unc===0 ? new Date().toISOString() : null
+  }).eq('id', weeklySession.id);
+
+  if(weeklySession){ weeklySession.filled_count=filled; weeklySession.half_count=half; weeklySession.empty_count=empty; weeklySession.unchecked_count=unc; weeklySession.fill_pct=fillPct; weeklySession.revenue_at_risk=risk; }
+}
+
+async function renderWeekly(el){
+  if(!weeklyLoaded){ el.innerHTML='<div class="loading">Loading weekly check…</div>'; await loadWeeklySession(); }
+
+  const weekStart = getWeekStart();
+  const label = weekLabel(weekStart);
+
+  if(!weeklySession){
+    // Show start screen + history
+    el.innerHTML = `
+      <div style="background:var(--ink);color:var(--paper);border-radius:var(--r);padding:20px;margin-bottom:16px;text-align:center;">
+        <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;color:#aaa;margin-bottom:6px;">This week · ${label}</div>
+        <div style="font-size:22px;font-weight:800;margin-bottom:4px;">Weekly Rack Fill Audit</div>
+        <div style="font-family:var(--mono);font-size:11px;color:#ccc;margin-bottom:18px;">Check every article — Yes / Half / No — to track fill efficiency and sales risk</div>
+        <button onclick="startWeeklyCheck()" style="font-family:var(--mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:14px 28px;border:none;border-radius:6px;background:var(--paper);color:var(--ink);cursor:pointer;">▶ Start This Week's Check</button>
+      </div>
+      <div class="sec">Previous weeks</div>
+      <div id="weekHistory"></div>
+    `;
+    await loadWeekHistory(el.querySelector('#weekHistory'));
+    return;
+  }
+
+  // Active session
+  const total = ARTICLES.length;
+  const filled = weeklySession.filled_count||0;
+  const half = weeklySession.half_count||0;
+  const empty = weeklySession.empty_count||0;
+  const unc = weeklySession.unchecked_count ?? (total - filled - half - empty);
+  const pct = weeklySession.fill_pct||0;
+  const risk = weeklySession.revenue_at_risk||0;
+  const done = total - unc;
+
+  el.innerHTML = `
+    <div style="background:var(--ink);color:var(--paper);border-radius:var(--r);padding:14px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;color:#aaa;">${label} · ${fmtDate(weekStart)}</div>
+          <div style="font-size:16px;font-weight:700;">Weekly Rack Audit</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px;font-weight:900;">${Math.round(pct)}%</div>
+          <div style="font-family:var(--mono);font-size:9px;color:#aaa;">FILL RATE</div>
+        </div>
+      </div>
+      <div style="height:8px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden;margin-bottom:10px;">
+        <div style="height:100%;width:${pct}%;background:${pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)'};border-radius:4px;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;">
+        <div><div style="font-size:16px;font-weight:800;color:#4caf78;">${filled}</div><div style="font-family:var(--mono);font-size:9px;color:#aaa;">YES</div></div>
+        <div><div style="font-size:16px;font-weight:800;color:#f0b429;">${half}</div><div style="font-family:var(--mono);font-size:9px;color:#aaa;">HALF</div></div>
+        <div><div style="font-size:16px;font-weight:800;color:#e05c3a;">${empty}</div><div style="font-family:var(--mono);font-size:9px;color:#aaa;">NO</div></div>
+        <div><div style="font-size:16px;font-weight:800;color:#aaa;">${unc}</div><div style="font-family:var(--mono);font-size:9px;color:#aaa;">TODO</div></div>
+      </div>
+      ${risk>0?`<div style="margin-top:8px;padding:6px 10px;background:rgba(224,92,58,.25);border-radius:4px;font-family:var(--mono);font-size:11px;color:#ffb3a0;text-align:center;">⚠ Revenue at risk: €${Math.round(risk).toLocaleString()} this week</div>`:''}
+    </div>
+
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <select id="wkRackFilter" style="font-family:var(--mono);font-size:11px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;flex:1;">
+        <option value="ALL">All racks</option>
+        ${RACKS.map(r=>`<option value="${r.code}" ${weeklyRackFilter===r.code?'selected':''}>${r.code} — ${r.label}</option>`).join('')}
+        <option value="NORACK">No rack assigned</option>
+      </select>
+      <select id="wkStatusFilter" style="font-family:var(--mono);font-size:11px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;flex:1;">
+        <option value="all">All articles</option>
+        <option value="unchecked">Todo only</option>
+        <option value="yes">Marked Yes</option>
+        <option value="half">Marked Half</option>
+        <option value="no">Marked No</option>
+      </select>
+    </div>
+    <div class="search-row" style="margin-bottom:8px;">
+      <input id="wkSearch" type="text" placeholder="Search article…">
+    </div>
+
+    <div id="weeklyList"></div>
+
+    ${unc===0 ? `
+    <div style="background:var(--gs);border:1px solid var(--green);border-radius:var(--r);padding:14px;margin-top:10px;text-align:center;">
+      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:4px;">✓ All articles checked!</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--gray);margin-bottom:12px;">Fill rate: ${Math.round(pct)}% · Revenue at risk: €${Math.round(risk).toLocaleString()}</div>
+      <button onclick="exportWeeklyReport()" style="font-family:var(--mono);font-size:12px;font-weight:700;padding:12px 20px;border:none;border-radius:6px;background:var(--ink);color:var(--paper);cursor:pointer;">📋 Download Weekly Report</button>
+    </div>` : `
+    <div style="text-align:center;margin-top:10px;">
+      <button onclick="exportWeeklyReport()" style="font-family:var(--mono);font-size:11px;padding:10px 16px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;">📋 Export partial report (${done}/${total} done)</button>
+    </div>`}
+  `;
+
+  function drawWeeklyList(){
+    const list = el.querySelector('#weeklyList');
+    if(!list) return;
+    list.innerHTML = '';
+    const rf = el.querySelector('#wkRackFilter')?.value || 'ALL';
+    const sf = el.querySelector('#wkStatusFilter')?.value || 'all';
+    const sq = el.querySelector('#wkSearch')?.value?.toLowerCase() || '';
+
+    // Sort: unchecked first, then by revenue (weekly_sale * price) desc
+    let filtered = [...ARTICLES].sort((a,b)=>{
+      const sa = weeklyItems[a.no]?.fill_status||'unchecked';
+      const sb2 = weeklyItems[b.no]?.fill_status||'unchecked';
+      if(sa==='unchecked'&&sb2!=='unchecked') return -1;
+      if(sa!=='unchecked'&&sb2==='unchecked') return 1;
+      return (b.wk*(b.price||0)) - (a.wk*(a.price||0));
+    });
+
+    filtered = filtered.filter(a=>{
+      const e = getEntry(a.no);
+      const rack = e.rack||'';
+      if(rf==='ALL') {}
+      else if(rf==='NORACK' && rack) return false;
+      else if(rf!=='NORACK' && rack!==rf) return false;
+      const st = weeklyItems[a.no]?.fill_status||'unchecked';
+      if(sf!=='all'&&st!==sf) return false;
+      if(sq&&!a.name.toLowerCase().includes(sq)&&!a.no.includes(sq)) return false;
+      return true;
+    });
+
+    if(!filtered.length){ list.innerHTML='<div class="empty">No articles match.</div>'; return; }
+
+    filtered.forEach(a=>{
+      const e = getEntry(a.no);
+      const st = weeklyItems[a.no]?.fill_status||'unchecked';
+      const rev = (a.wk*(a.price||0)).toFixed(0);
+      const bgMap = {yes:'var(--gs)',half:'var(--ys)',no:'var(--rs)',unchecked:'#fff'};
+      const borderMap = {yes:'var(--green)',half:'var(--yellow)',no:'var(--red)',unchecked:'var(--line)'};
+
+      const row = document.createElement('div');
+      row.className = 'week-card';
+      row.style.cssText = `border-color:${borderMap[st]};`;
+      row.innerHTML = `
+        <div class="week-card-head" style="background:${bgMap[st]};">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;">${e.rack||'no rack'} · ${a.grp} · €${rev}/wk</div>
+          </div>
+          <div style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:10px;background:${borderMap[st]};color:${st==='unchecked'?'var(--gray)':'#fff'};margin-left:8px;text-transform:uppercase;flex-shrink:0;">${st==='unchecked'?'todo':st}</div>
+        </div>
+        <div style="display:flex;gap:6px;padding:8px 10px;background:#fff;">
+          <button class="fill-btn ${st==='yes'?'yes':'yes-sel'}" onclick="markWeeklyItem('${a.no}','yes').then(()=>drawWeeklyList())">✓ Yes</button>
+          <button class="fill-btn ${st==='half'?'half':'half-sel'}" onclick="markWeeklyItem('${a.no}','half').then(()=>drawWeeklyList())">⚡ Half</button>
+          <button class="fill-btn ${st==='no'?'no':'no-sel'}" onclick="markWeeklyItem('${a.no}','no').then(()=>drawWeeklyList())">✗ No</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  el.querySelector('#wkRackFilter')?.addEventListener('change', drawWeeklyList);
+  el.querySelector('#wkStatusFilter')?.addEventListener('change', drawWeeklyList);
+  el.querySelector('#wkSearch')?.addEventListener('input', drawWeeklyList);
+  drawWeeklyList();
+}
+
+async function loadWeekHistory(container){
+  const {data} = await sb.from('weekly_efficiency_trend').select('*');
+  if(!data||!data.length){ container.innerHTML='<div class="empty">No previous checks yet.</div>'; return; }
+  data.forEach(s=>{
+    const div=document.createElement('div');
+    div.className='week-card';
+    const pct=Math.round(s.fill_pct||0);
+    const color=pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
+    div.innerHTML=`
+      <div class="week-card-head" style="cursor:default;">
+        <div>
+          <div style="font-size:14px;font-weight:700;">${s.week_label}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--gray);">${fmtDate(s.week_start)} · ${s.checked_by||'?'} · ${s.completed?'✓ Complete':'In progress'}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:20px;font-weight:800;color:${color};">${pct}%</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--gray);">fill rate</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px 10px;background:var(--gray-soft);">
+        <div style="text-align:center;"><div style="font-weight:700;color:var(--green);">${s.filled_count||0}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">YES</div></div>
+        <div style="text-align:center;"><div style="font-weight:700;color:var(--yellow);">${s.half_count||0}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">HALF</div></div>
+        <div style="text-align:center;"><div style="font-weight:700;color:var(--red);">${s.empty_count||0}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">NO</div></div>
+        <div style="text-align:center;"><div style="font-weight:700;color:var(--red);">€${Math.round(s.revenue_at_risk||0).toLocaleString()}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">AT RISK</div></div>
+      </div>
+      <div style="padding:8px 10px;display:flex;justify-content:flex-end;">
+        <button onclick="exportWeeklyReportById(${s.id},'${s.week_label}')" style="font-family:var(--mono);font-size:10px;padding:6px 10px;border:1px solid var(--line);border-radius:4px;background:#fff;cursor:pointer;">📋 Download Report</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+async function exportWeeklyReport(){
+  if(!weeklySession) return;
+  await exportWeeklyReportById(weeklySession.id, weeklySession.week_label);
+}
+
+async function exportWeeklyReportById(sessionId, label){
+  const {data:items} = await sb.from('weekly_check_items').select('*').eq('session_id', sessionId).order('fill_status').order('revenue_at_risk', {ascending:false});
+  if(!items){ snack('No data found'); return; }
+
+  const {data:session} = await sb.from('weekly_check_sessions').select('*').eq('id', sessionId).single();
+
+  const rows = [
+    [`Weekly Rack Fill Report — ${label}`,'','','','','','',''],
+    [`Generated: ${new Date().toLocaleString('de-DE')}`,'','','','','','',''],
+    [`Fill Rate: ${Math.round(session?.fill_pct||0)}%  |  Revenue at risk: €${Math.round(session?.revenue_at_risk||0).toLocaleString()}  |  Checked by: ${session?.checked_by||'?'}`,'','','','','','',''],
+    [''],
+    ['Status','Article No','Article Name','Category','Rack','Weekly Sale','Price (€)','Revenue at Risk (€)','Checked By','Checked At']
+  ];
+
+  // Group by status: No first (most critical), Half, Yes, Unchecked
+  ['no','half','yes','unchecked'].forEach(st=>{
+    const grp = items.filter(i=>i.fill_status===st);
+    if(!grp.length) return;
+    const label2 = st==='yes'?'✓ FILLED':st==='half'?'⚡ HALF FILLED':st==='no'?'✗ EMPTY / NOT STOCKED':'— NOT CHECKED';
+    rows.push([`=== ${label2} (${grp.length} articles) ===`,'','','','','','','','','']);
+    grp.sort((a,b)=>(b.revenue_at_risk||0)-(a.revenue_at_risk||0)).forEach(i=>{
+      rows.push([
+        st.toUpperCase(), i.article_no, i.article_name, i.grp||'', i.rack||'',
+        i.weekly_sale||0, i.price||0,
+        (i.revenue_at_risk||0).toFixed(2),
+        i.checked_by||'', i.checked_at ? new Date(i.checked_at).toLocaleString('de-DE') : ''
+      ]);
+    });
+    rows.push(['']);
+  });
+
+  dlCsv(rows, `weekly-report-${label.replace(' ','-')}.csv`);
+  snack('Weekly report downloaded ✓');
+}
 
 
 // ─── RACK CHECK PAGE ───────────────────────────────────────────────
@@ -965,7 +1336,8 @@ function renderRackCheck(el){
         <div><div style="font-weight:700;color:var(--gray);">${allUnc}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">UNCHECKED</div></div>
       </div>
     </div>
-    <button onclick="exportRefill()" style="width:100%;margin-top:8px;font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;">⬇ Export refill list CSV</button>
+    <button onclick="exportRefill()" style="width:100%;margin-top:8px;font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;">⬇ Refill list CSV</button>
+    <button onclick="exportRackAssignment()" style="width:100%;margin-top:6px;font-family:var(--mono);font-size:11px;padding:11px;border:none;border-radius:var(--r);background:var(--ink);color:var(--paper);cursor:pointer;font-weight:700;">📋 Rack Assignment Report</button>
   `;
 }
 
@@ -1221,6 +1593,21 @@ function exportRefill(){
   const rows=[['Article No','Name','Group','Rack','Weekly Sale','On Hand','Status','Shortfall']];
   ARTICLES.forEach(a=>{ const e=getEntry(a.no),s=deriveStatus(e,a); if(s==='low'||s==='out'){ const oh=s==='out'?0:(e.qty??0); rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,oh,s,Math.max(0,a.wk-oh)]); } });
   dlCsv(rows,`refill-${todayStr()}.csv`);
+}
+function exportRackAssignment(){
+  const rows=[['Rack','Rack Label','Article No','Article Name','Category','Weekly Sale','Price (EUR)','Status','Qty in Rack','Last Checked By','Last Checked']];
+  const byRack={};
+  ARTICLES.forEach(a=>{ const e=getEntry(a.no); const r=e.rack||'No Rack'; if(!byRack[r])byRack[r]=[]; byRack[r].push(a); });
+  const order=[...RACKS.map(r=>r.code),'No Rack'];
+  order.forEach(code=>{
+    const items=byRack[code]; if(!items||!items.length)return;
+    const label=RACKS.find(r=>r.code===code)?.label||'';
+    rows.push(['=== '+code+' - '+label+' ===','','','','','','','','','','']);
+    items.sort((a,b)=>a.grp.localeCompare(b.grp)||a.name.localeCompare(b.name));
+    items.forEach(a=>{ const e=getEntry(a.no); rows.push([code,label,a.no,a.name,a.grp,a.wk,a.price||'',deriveStatus(e,a),e.qty??'',e.updated_by||'',e.updated_at?new Date(e.updated_at).toLocaleString('de-DE'):'']); });
+    rows.push(['','','','','','','','','','','']);
+  });
+  dlCsv(rows,`rack-assignment-${todayStr()}.csv`);
 }
 function exportFull(){
   const rows=[['Article No','Name','Group','Rack','Weekly Sale','On Hand','Status','Expiry','Updated By','Updated At']];

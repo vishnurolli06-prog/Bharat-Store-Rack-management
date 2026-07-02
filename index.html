@@ -918,7 +918,7 @@ function getWeekStart(d = new Date()){
   const mon = new Date(d); mon.setDate(diff); mon.setHours(0,0,0,0);
   return mon;
 }
-function weekLabel(d){ const w = getWeekNumber(d); return `W${w} ${d.getFullYear()}`; }
+function weekLabel(d){ const w = getWeekNumber(d); return 'W' + w + ' ' + d.getFullYear(); }
 function getWeekNumber(d){
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay()||7));

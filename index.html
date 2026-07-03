@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-title" content="BGS Inventory">
 <meta name="theme-color" content="#1a1209">
 <title>Bharat Grocery Store — Inventory</title>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 :root{
@@ -22,14 +22,9 @@
   --r:10px;--shadow:0 2px 8px rgba(26,18,9,.1);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{margin:0;font-family:var(--sans);background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:72px;}
+body{margin:0;font-family:var(--sans);background:#1a1209;color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:72px;}
 
-/* ── UPLOAD SCREEN ── */
-#uploadScreen{
-  min-height:100vh;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  background:var(--ink);padding:24px;
-}
+/* upload screen uses inline styles */
 .upload-logo{
   font-family:var(--display);font-size:32px;font-weight:900;
   color:var(--paper);text-align:center;margin-bottom:4px;
@@ -256,7 +251,7 @@ tr:last-child td{border-bottom:none;}
 <body>
 
 <!-- ── UPLOAD SCREEN ── -->
-<div id="uploadScreen">
+<div id="uploadScreen" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1a1209;padding:24px;">
   <div class="upload-logo">Bharat Grocery Store</div>
   <div class="upload-sub">Inventory Control · München</div>
   <div class="upload-box">
@@ -278,7 +273,7 @@ tr:last-child td{border-bottom:none;}
 </div>
 
 <!-- ── MAIN APP ── -->
-<header id="mainHeader">
+<header id="mainHeader" style="display:none;">
   <div class="hdr">
     <div class="hdr-left">
       <h1>Bharat Grocery Store</h1>
@@ -298,7 +293,7 @@ tr:last-child td{border-bottom:none;}
   </nav>
 </header>
 
-<main id="mainContent">
+<main id="mainContent" style="display:none;">
   <div id="pg-dashboard" class="page active"></div>
   <div id="pg-map" class="page"></div>
   <div id="pg-articles" class="page"></div>

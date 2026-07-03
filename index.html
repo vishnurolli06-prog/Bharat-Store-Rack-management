@@ -4,298 +4,337 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Inventory">
-<meta name="theme-color" content="#1c1a17">
-<title>Bharat Bazar — Inventory</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<meta name="apple-mobile-web-app-title" content="BGS Inventory">
+<meta name="theme-color" content="#1a1209">
+<title>Bharat Grocery Store — Inventory</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 :root{
-  --ink:#1c1a17;--paper:#faf7f1;--line:#e2dccf;
-  --green:#3f7a4a;--gs:#e1f0e3;
-  --yellow:#a8791a;--ys:#faf0d6;
-  --red:#b5562f;--rs:#fbe6db;
-  --gray:#8a8275;--gray-soft:#ece8df;
-  --accent:#b5562f;--accent-soft:#f0d9cb;
-  --mono:'Courier New',monospace;
-  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  --r:8px;
+  --ink:#1a1209;--paper:#fffdf7;--cream:#f5f0e8;--line:#e8e0d0;
+  --saffron:#d4851a;--saffron-soft:#fef3e2;
+  --green:#2d6a3f;--gs:#e8f5ed;
+  --yellow:#b07a10;--ys:#fdf6e3;
+  --red:#c0392b;--rs:#fdecea;
+  --gray:#7a6e62;--gray-soft:#ede8df;
+  --display:'Playfair Display',Georgia,serif;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono','Courier New',monospace;
+  --r:10px;--shadow:0 2px 8px rgba(26,18,9,.1);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{margin:0;font-family:var(--sans);background:var(--gray-soft);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:72px;}
+body{margin:0;font-family:var(--sans);background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:72px;}
 
+/* ── UPLOAD SCREEN ── */
+#uploadScreen{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:var(--ink);padding:24px;
+}
+.upload-logo{
+  font-family:var(--display);font-size:32px;font-weight:900;
+  color:var(--paper);text-align:center;margin-bottom:4px;
+}
+.upload-sub{
+  font-family:var(--mono);font-size:10px;text-transform:uppercase;
+  letter-spacing:.14em;color:var(--saffron);text-align:center;margin-bottom:32px;
+}
+.upload-box{
+  background:var(--paper);border-radius:16px;padding:28px 24px;
+  width:100%;max-width:400px;text-align:center;
+}
+.upload-icon{font-size:48px;margin-bottom:12px;}
+.upload-box h2{
+  font-family:var(--display);font-size:20px;font-weight:700;
+  margin:0 0 8px;color:var(--ink);
+}
+.upload-box p{
+  font-family:var(--sans);font-size:13px;color:var(--gray);
+  margin:0 0 20px;line-height:1.5;
+}
+.upload-btn{
+  display:inline-block;font-family:var(--mono);font-size:12px;
+  text-transform:uppercase;letter-spacing:.07em;font-weight:700;
+  padding:14px 24px;border-radius:8px;
+  background:var(--saffron);color:var(--ink);cursor:pointer;
+  border:none;width:100%;margin-bottom:10px;
+}
+.upload-formats{
+  font-family:var(--mono);font-size:10px;color:var(--gray);
+  margin-top:10px;
+}
+.upload-err{
+  background:var(--rs);color:var(--red);border-radius:8px;
+  padding:10px 14px;font-family:var(--mono);font-size:11px;
+  margin-top:10px;display:none;
+}
+.upload-progress{
+  font-family:var(--mono);font-size:11px;color:var(--gray);
+  margin-top:10px;display:none;
+}
+.prev-session{
+  margin-top:16px;padding:12px 14px;border-radius:8px;
+  background:var(--gs);border:1px solid var(--green);
+  font-family:var(--mono);font-size:11px;color:var(--green);
+  cursor:pointer;display:none;
+}
+.prev-session b{display:block;font-size:13px;margin-bottom:2px;color:var(--ink);}
 
-
-/* HEADER */
-header{position:sticky;top:0;z-index:40;background:var(--ink);color:var(--paper);padding:10px 14px env(safe-area-inset-top,0);}
-.hdr-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.hdr-row h1{font-size:15px;margin:0;font-weight:700;}
-.hdr-row .tag{font-family:var(--mono);font-size:9px;color:#aaa;display:block;}
+/* ── HEADER ── */
+header{
+  position:sticky;top:0;z-index:40;
+  background:var(--ink);color:var(--paper);
+  padding:12px 16px;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);
+  display:none;
+}
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.hdr-left h1{
+  font-family:var(--display);font-size:18px;margin:0;
+  font-weight:900;color:var(--paper);
+}
+.hdr-left .sub{
+  font-family:var(--mono);font-size:8.5px;color:var(--saffron);
+  text-transform:uppercase;letter-spacing:.12em;
+}
 .hdr-right{display:flex;align-items:center;gap:8px;}
-.user-badge{font-family:var(--mono);font-size:10px;color:#ccc;}
-.admin-chip{font-family:var(--mono);font-size:9px;background:var(--accent);color:#fff;padding:2px 6px;border-radius:8px;text-transform:uppercase;}
-.logout-btn{font-family:var(--mono);font-size:10px;background:transparent;border:1px solid #555;color:#aaa;padding:4px 8px;border-radius:12px;cursor:pointer;}
+.file-chip{
+  font-family:var(--mono);font-size:9px;color:#aaa;
+  background:rgba(255,255,255,.1);padding:4px 8px;border-radius:10px;
+  white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;
+}
+.new-file-btn{
+  font-family:var(--mono);font-size:9px;text-transform:uppercase;
+  padding:5px 10px;border-radius:14px;border:1px solid #555;
+  background:transparent;color:#aaa;cursor:pointer;white-space:nowrap;
+}
 
-/* BOTTOM NAV */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--ink);border-top:1px solid #333;display:flex;padding-bottom:env(safe-area-inset-bottom,0);}
-.nav-btn{flex:1;padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;color:#777;cursor:pointer;font-family:var(--mono);font-size:9px;text-transform:uppercase;}
-.nav-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-.nav-btn.active{color:#fff;}
+nav{
+  display:flex;gap:4px;margin-top:10px;overflow-x:auto;scrollbar-width:none;
+}
+nav::-webkit-scrollbar{display:none;}
+nav button{
+  font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;
+  padding:6px 12px;border:1px solid rgba(255,255,255,.2);
+  background:transparent;color:rgba(255,255,255,.6);
+  border-radius:20px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;
+}
+nav button.active{background:var(--saffron);color:var(--ink);border-color:var(--saffron);font-weight:600;}
 
-/* PAGES */
-.page{display:none;padding:12px;max-width:700px;margin:0 auto;}
-.page.active{display:block;}
-.sec{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--gray);margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--line);}
+/* ── MAIN ── */
+main{padding:14px;max-width:720px;margin:0 auto;display:none;}
+.page{display:none;} .page.active{display:block;}
+.sec{
+  font-family:var(--display);font-size:13px;font-weight:700;
+  color:var(--saffron);margin:18px 0 8px;
+  padding-bottom:6px;border-bottom:2px solid var(--saffron-soft);
+}
 
-/* CARDS / STATS */
-.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;}
-.stat-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;}
-.stat-card .n{font-size:24px;font-weight:800;line-height:1;}
-.stat-card .l{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);margin-top:3px;}
-.stat-card.green{border-color:var(--green);background:var(--gs);} .stat-card.green .n{color:var(--green);}
-.stat-card.yellow{border-color:var(--yellow);background:var(--ys);} .stat-card.yellow .n{color:var(--yellow);}
-.stat-card.red{border-color:var(--red);background:var(--rs);} .stat-card.red .n{color:var(--red);}
+/* ── STAT GRID ── */
+.sg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;}
+.sc{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow);}
+.sc .n{font-family:var(--display);font-size:28px;font-weight:900;line-height:1;}
+.sc .l{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--gray);margin-top:4px;}
+.sc.green{border-color:var(--green);background:var(--gs);} .sc.green .n{color:var(--green);}
+.sc.yellow{border-color:var(--yellow);background:var(--ys);} .sc.yellow .n{color:var(--yellow);}
+.sc.red{border-color:var(--red);background:var(--rs);} .sc.red .n{color:var(--red);}
 
-/* RACK TILES */
-.rack-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.rack-tile{background:#fff;border:2px solid var(--line);border-radius:var(--r);padding:14px 12px;cursor:pointer;text-align:center;transition:transform .1s;}
-.rack-tile:active{transform:scale(.97);}
-.rack-tile .rn{font-size:26px;font-weight:900;}
-.rack-tile .rl{font-family:var(--mono);font-size:10px;color:var(--gray);text-transform:uppercase;}
-.rack-tile .rp{font-size:20px;font-weight:800;margin-top:6px;}
-.rack-tile .rb{height:6px;border-radius:3px;background:var(--line);margin-top:5px;overflow:hidden;}
-.rack-tile .rb i{display:block;height:100%;border-radius:3px;}
-.rack-tile .rc{font-family:var(--mono);font-size:9px;color:var(--gray);margin-top:3px;}
-.rack-tile.green{border-color:var(--green);background:var(--gs);} .rack-tile.green .rp{color:var(--green);} .rack-tile.green .rb i{background:var(--green);}
-.rack-tile.yellow{border-color:var(--yellow);background:var(--ys);} .rack-tile.yellow .rp{color:var(--yellow);} .rack-tile.yellow .rb i{background:var(--yellow);}
-.rack-tile.red{border-color:var(--red);background:var(--rs);} .rack-tile.red .rp{color:var(--red);} .rack-tile.red .rb i{background:var(--red);}
+/* ── RACK TILES ── */
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.rt{background:var(--paper);border:2px solid var(--line);border-radius:var(--r);padding:16px 14px;cursor:pointer;text-align:center;transition:transform .15s;box-shadow:var(--shadow);}
+.rt:active{transform:scale(.97);}
+.rt .rn{font-family:var(--display);font-size:28px;font-weight:900;}
+.rt .rl{font-family:var(--mono);font-size:9.5px;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+.rt .rp{font-family:var(--display);font-size:22px;font-weight:700;margin-top:8px;}
+.rt .rb{height:7px;border-radius:4px;background:var(--line);margin-top:7px;overflow:hidden;}
+.rt .rb i{display:block;height:100%;border-radius:4px;transition:width .3s;}
+.rt .rc{font-family:var(--mono);font-size:9px;color:var(--gray);margin-top:4px;}
+.rt.green{border-color:var(--green);background:var(--gs);} .rt.green .rp{color:var(--green);} .rt.green .rb i{background:var(--green);}
+.rt.yellow{border-color:var(--yellow);background:var(--ys);} .rt.yellow .rp{color:var(--yellow);} .rt.yellow .rb i{background:var(--yellow);}
+.rt.red{border-color:var(--red);background:var(--rs);} .rt.red .rp{color:var(--red);} .rt.red .rb i{background:var(--red);}
 
-/* LISTS */
-.list-item{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:6px;cursor:pointer;}
-.list-item:active{background:var(--gray-soft);}
-.list-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.list-dot.filled{background:var(--green);} .list-dot.low{background:var(--yellow);} .list-dot.out{background:var(--red);} .list-dot.unchecked{background:var(--line);}
-.list-info{flex:1;min-width:0;}
-.list-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.list-sub{font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;}
-.list-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.rack-tag{font-family:var(--mono);font-size:10px;background:var(--gray-soft);padding:2px 6px;border-radius:8px;}
-.arr{color:var(--line);font-size:14px;}
+/* ── SEARCH ── */
+.sbar{display:flex;gap:8px;margin-bottom:10px;}
+.sbar input{flex:1;font-family:var(--sans);font-size:14px;padding:11px 14px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper);outline:none;box-shadow:var(--shadow);}
+.sbar input:focus{border-color:var(--saffron);}
+.ibutton{width:44px;height:44px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--shadow);}
+.ibutton svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:6px;scrollbar-width:none;}
+.filters::-webkit-scrollbar{display:none;}
+.fp{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;padding:6px 12px;border:1.5px solid var(--line);background:var(--paper);border-radius:20px;color:var(--gray);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;}
+.fp.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
 
-/* GROUP ACCORDION */
-.grp{background:#fff;border:1px solid var(--line);border-radius:var(--r);margin-bottom:6px;overflow:hidden;}
-.grp-h{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;cursor:pointer;gap:8px;}
-.grp-h:active{background:var(--gray-soft);}
-.grp-title{font-size:14px;font-weight:600;flex:1;}
-.grp-meta{display:flex;align-items:center;gap:5px;}
+/* ── GROUP ACCORDION ── */
+.grp{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow);}
+.grp-h{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;transition:background .1s;}
+.grp-h:active{background:var(--cream);}
+.grp-title{font-family:var(--sans);font-size:14px;font-weight:600;flex:1;}
+.grp-meta{display:flex;align-items:center;gap:6px;}
 .grp-dots{display:flex;gap:3px;}
 .grp-dot{width:7px;height:7px;border-radius:50%;}
 .grp-cnt{font-family:var(--mono);font-size:10px;color:var(--gray);}
-.grp-arr{font-size:11px;color:var(--gray);transition:transform .2s;}
+.grp-arr{font-size:12px;color:var(--gray);transition:transform .2s;}
 .grp.open .grp-arr{transform:rotate(90deg);}
 .grp-body{display:none;border-top:1px solid var(--line);}
 .grp.open .grp-body{display:block;}
 
-/* SEARCH + FILTERS */
-.search-row{display:flex;gap:6px;margin-bottom:8px;}
-.search-row input{flex:1;font-family:var(--sans);font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:#fff;outline:none;}
-.search-row input:focus{border-color:var(--ink);}
-.icon-btn{width:42px;height:42px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.icon-btn svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-.filters{display:flex;gap:5px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none;}
-.filters::-webkit-scrollbar{display:none;}
-.fp{font-family:var(--mono);font-size:10px;text-transform:uppercase;padding:5px 10px;border:1px solid var(--line);background:#fff;border-radius:12px;color:var(--gray);cursor:pointer;white-space:nowrap;flex-shrink:0;}
-.fp.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+/* ── ARTICLE ROW ── */
+.ar{display:flex;align-items:center;padding:11px 14px;gap:10px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .1s;}
+.ar:last-child{border-bottom:none;}
+.ar:active{background:var(--cream);}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dot.filled{background:var(--green);} .dot.low{background:var(--yellow);}
+.dot.out{background:var(--red);} .dot.unchecked{background:var(--line);}
+.ai{flex:1;min-width:0;}
+.an{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.as{font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;}
+.rtag{font-family:var(--mono);font-size:10px;background:var(--saffron-soft);color:var(--saffron);padding:3px 8px;border-radius:10px;flex-shrink:0;font-weight:600;border:1px solid var(--saffron);}
 
-/* BOTTOM SHEET */
-.overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:none;}
+/* ── BOTTOM SHEET ── */
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(26,18,9,.5);display:none;backdrop-filter:blur(2px);}
 .overlay.open{display:block;}
-.sheet{position:fixed;bottom:0;left:0;right:0;z-index:51;background:var(--paper);border-radius:16px 16px 0 0;padding:0;max-height:90vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s cubic-bezier(.32,0,.67,0);}
+.sheet{position:fixed;bottom:0;left:0;right:0;z-index:51;background:var(--paper);border-radius:20px 20px 0 0;transform:translateY(100%);transition:transform .28s cubic-bezier(.32,0,.67,0);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 -4px 30px rgba(0,0,0,.2);}
 .sheet.open{transform:translateY(0);}
-.sheet-handle{width:36px;height:4px;background:var(--line);border-radius:2px;margin:10px auto 0;}
-.sheet-hd{padding:12px 16px 10px;border-bottom:1px solid var(--line);}
-.sheet-hd h3{margin:0;font-size:15px;font-weight:700;}
-.sheet-hd p{margin:4px 0 0;font-family:var(--mono);font-size:10px;color:var(--gray);}
-.sheet-body{padding:14px 16px;overflow-y:auto;flex:1;}
-.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
-.field label{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);}
-.field input,.field select,.field textarea{font-family:var(--sans);font-size:14px;padding:10px;border:1px solid var(--line);border-radius:6px;background:#fff;width:100%;}
-.field input:focus,.field select:focus{outline:none;border-color:var(--ink);}
-.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
-.btn{padding:13px;border-radius:var(--r);border:none;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;font-weight:700;}
-.btn.primary{background:var(--ink);color:var(--paper);}
+.sh{width:40px;height:4px;background:var(--line);border-radius:2px;margin:12px auto 0;}
+.shd{padding:14px 18px 12px;border-bottom:1px solid var(--line);}
+.shd h3{margin:0;font-family:var(--display);font-size:17px;font-weight:700;}
+.shd p{margin:4px 0 0;font-family:var(--mono);font-size:10px;color:var(--gray);}
+.shb{padding:16px 18px;overflow-y:auto;flex:1;}
+.stbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:14px;}
+.stbar.filled{background:var(--gs);} .stbar.low{background:var(--ys);} .stbar.out{background:var(--rs);} .stbar.unchecked{background:var(--gray-soft);}
+.stbar .sd{width:10px;height:10px;border-radius:50%;}
+.stbar.filled .sd{background:var(--green);} .stbar.low .sd{background:var(--yellow);} .stbar.out .sd{background:var(--red);} .stbar.unchecked .sd{background:var(--gray);}
+.stbar .st{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+.stbar .sw{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--gray);}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+.field label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--gray);}
+.field select,.field input[type=number],.field input[type=date]{font-family:var(--sans);font-size:15px;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);width:100%;}
+.field select:focus,.field input:focus{outline:none;border-color:var(--saffron);}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;}
+.btn{padding:14px;border-radius:var(--r);border:none;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;font-weight:700;transition:opacity .15s;}
+.btn:active{opacity:.85;}
 .btn.green{background:var(--green);color:#fff;}
 .btn.red{background:var(--red);color:#fff;}
 .btn.gray{background:var(--gray-soft);color:var(--ink);}
-.btn.yellow{background:var(--yellow);color:#fff;}
-.status-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;margin-bottom:12px;}
-.status-bar.filled{background:var(--gs);} .status-bar.low{background:var(--ys);} .status-bar.out{background:var(--rs);} .status-bar.unchecked{background:var(--gray-soft);}
-.sb-dot{width:10px;height:10px;border-radius:50%;}
-.status-bar.filled .sb-dot{background:var(--green);} .status-bar.low .sb-dot{background:var(--yellow);} .status-bar.out .sb-dot{background:var(--red);} .status-bar.unchecked .sb-dot{background:var(--gray);}
-.sb-txt{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
-.sb-wk{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--gray);}
 
-/* ADMIN TABS */
-.admin-tabs{display:flex;gap:4px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;padding-bottom:4px;}
-.admin-tabs::-webkit-scrollbar{display:none;}
-.atab{font-family:var(--mono);font-size:11px;text-transform:uppercase;padding:7px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;white-space:nowrap;color:var(--gray);}
-.atab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+/* ── QUICK CHECK BUTTONS ── */
+.qck{display:flex;gap:6px;padding:8px 10px;background:#fff;border-top:1px solid var(--line);}
+.qb{flex:1;padding:10px 6px;border:2px solid var(--line);border-radius:6px;background:#fff;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;font-weight:700;transition:all .1s;}
+.qb:active{transform:scale(.96);}
+.qb.yes{background:var(--green);border-color:var(--green);color:#fff;}
+.qb.half{background:var(--yellow);border-color:var(--yellow);color:#fff;}
+.qb.no{background:var(--red);border-color:var(--red);color:#fff;}
+.qb.y-out{border-color:var(--green);color:var(--green);}
+.qb.h-out{border-color:var(--yellow);color:var(--yellow);}
+.qb.n-out{border-color:var(--red);color:var(--red);}
 
-/* TABLE */
-table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);}
-th,td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;}
-th{background:var(--gray-soft);font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--gray);}
-tr:last-child td{border-bottom:none;}
-td .action{font-family:var(--mono);font-size:10px;padding:3px 7px;border:1px solid var(--line);border-radius:4px;background:#fff;cursor:pointer;margin-right:4px;}
-td .action.red{border-color:var(--red);color:var(--red);}
-
-/* SCAN MODAL */
+/* ── SCAN ── */
 .scan-modal{position:fixed;inset:0;z-index:60;background:#000;display:none;flex-direction:column;}
 .scan-modal.open{display:flex;}
-.scan-modal video{flex:1;object-fit:cover;}
-.scan-top{padding:14px;display:flex;justify-content:space-between;align-items:center;}
-.scan-top button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:8px 14px;border-radius:20px;font-family:var(--mono);font-size:12px;cursor:pointer;}
-.scan-hint{color:#fff;font-family:var(--mono);font-size:12px;text-align:center;padding:12px;}
-.reticle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:130px;border:2px solid rgba(255,255,255,.7);border-radius:10px;pointer-events:none;}
+.scan-modal video{flex:1;object-fit:cover;width:100%;}
+.scan-top{padding:16px;display:flex;justify-content:space-between;align-items:center;}
+.scan-top button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:8px 16px;border-radius:20px;font-family:var(--mono);font-size:12px;cursor:pointer;}
+.scan-hint{color:#fff;font-family:var(--mono);font-size:12px;text-align:center;padding:14px;}
+.reticle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:130px;border:2px solid rgba(255,200,100,.9);border-radius:12px;pointer-events:none;box-shadow:0 0 0 2000px rgba(0,0,0,.4);}
 
-/* MISC */
-.empty{text-align:center;padding:32px 16px;color:var(--gray);font-family:var(--mono);font-size:12px;}
-.loading{text-align:center;padding:48px 16px;color:var(--gray);font-family:var(--mono);font-size:12px;}
-.back-btn{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;text-transform:uppercase;padding:7px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px;}
-.chip{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:8px;text-transform:uppercase;}
-.chip.admin{background:var(--accent);color:#fff;}
-.chip.staff{background:var(--gray-soft);color:var(--gray);}
-.chip.active{background:var(--gs);color:var(--green);}
-.chip.inactive{background:var(--rs);color:var(--red);}
-.add-fab{position:fixed;bottom:80px;right:16px;z-index:35;width:48px;height:48px;border-radius:24px;background:var(--ink);color:var(--paper);border:none;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.25);}
-.fill-btn{flex:1;padding:10px 6px;border:2px solid var(--line);border-radius:6px;background:#fff;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;font-weight:700;transition:all .1s;}
-.fill-btn:active{transform:scale(.96);}
-.fill-btn.yes{background:var(--green);border-color:var(--green);color:#fff;}
-.fill-btn.half{background:var(--yellow);border-color:var(--yellow);color:#fff;}
-.fill-btn.no{background:var(--red);border-color:var(--red);color:#fff;}
-.fill-btn.yes-sel{border-color:var(--green);color:var(--green);}
-.fill-btn.half-sel{border-color:var(--yellow);color:var(--yellow);}
-.fill-btn.no-sel{border-color:var(--red);color:var(--red);}
-.week-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px;overflow:hidden;}
-.week-card-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;}
-.week-stat{text-align:center;}
-.week-stat .wn{font-size:18px;font-weight:800;}
-.week-stat .wl{font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--gray);}
-.snackbar{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:20px;display:none;white-space:nowrap;}
+/* ── TABLE ── */
+table{width:100%;border-collapse:collapse;font-size:12px;background:var(--paper);border-radius:var(--r);overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);}
+th,td{border-bottom:1px solid var(--line);padding:8px 12px;text-align:left;}
+th{background:var(--cream);font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--gray);}
+tr:last-child td{border-bottom:none;}
+
+/* ── MISC ── */
+.empty{text-align:center;padding:36px;color:var(--gray);font-family:var(--mono);font-size:12px;}
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;background:var(--paper);cursor:pointer;margin-bottom:12px;color:var(--gray);box-shadow:var(--shadow);}
+.snackbar{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:12px;padding:11px 20px;border-radius:24px;display:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+.badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:8px;text-transform:uppercase;font-weight:600;}
+.badge.a{background:#e8f5ed;color:var(--green);}
+.badge.b{background:var(--ys);color:var(--yellow);}
+.badge.c{background:var(--rs);color:var(--red);}
+.wkrev{font-family:var(--mono);font-size:10px;color:var(--saffron);font-weight:600;}
 </style>
 </head>
 <body>
 
-<div id="authScreen" style="display:none;"></div>
-
-<!-- MAIN APP (hidden until logged in) -->
-<div id="appScreen">
-  <header>
-    <div class="hdr-row">
-      <div><h1 id="hdrStoreName">Inventory Control</h1><span class="tag" id="hdrAddress">Bharat Bazar</span></div>
-      <div class="hdr-right">
-        
-        
-      </div>
+<!-- ── UPLOAD SCREEN ── -->
+<div id="uploadScreen">
+  <div class="upload-logo">Bharat Grocery Store</div>
+  <div class="upload-sub">Inventory Control · München</div>
+  <div class="upload-box">
+    <div class="upload-icon">📦</div>
+    <h2>Load Inventory File</h2>
+    <p>Upload your article master Excel or CSV file to start the inventory check session.</p>
+    <label class="upload-btn">
+      📂 Choose File (.xlsx or .csv)
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleFileUpload(event)">
+    </label>
+    <div class="upload-formats">Supports: article_master_data.xlsx · rack-assignment.csv</div>
+    <div class="upload-err" id="uploadErr"></div>
+    <div class="upload-progress" id="uploadProgress">Reading file…</div>
+    <div class="prev-session" id="prevSession" onclick="loadPrevSession()">
+      <b id="prevSessionTitle">Continue previous session</b>
+      <span id="prevSessionInfo"></span>
     </div>
-  </header>
+  </div>
+</div>
 
-  <!-- PAGES -->
+<!-- ── MAIN APP ── -->
+<header id="mainHeader">
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1>Bharat Grocery Store</h1>
+      <span class="sub" id="hdrSub">Inventory Control</span>
+    </div>
+    <div class="hdr-right">
+      <span class="file-chip" id="fileChip"></span>
+      <button class="new-file-btn" onclick="switchFile()">↑ New file</button>
+    </div>
+  </div>
+  <nav id="navTabs">
+    <button class="active" data-tab="dashboard">Dashboard</button>
+    <button data-tab="map">Racks</button>
+    <button data-tab="articles">Articles</button>
+    <button data-tab="check">Quick Check</button>
+    <button data-tab="reports">Reports</button>
+  </nav>
+</header>
+
+<main id="mainContent">
   <div id="pg-dashboard" class="page active"></div>
   <div id="pg-map" class="page"></div>
   <div id="pg-articles" class="page"></div>
-  <div id="pg-admin" class="page"></div>
-  <div id="pg-analytics" class="page"></div>
-  <div id="pg-rackcheck" class="page"></div>
-  <div id="pg-weekly" class="page"></div>
+  <div id="pg-check" class="page"></div>
+  <div id="pg-reports" class="page"></div>
+</main>
 
-  <!-- BOTTOM NAV -->
-  <nav class="bottom-nav" id="bottomNav">
-    <button class="nav-btn" data-page="dashboard">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard
-    </button>
-    <button class="nav-btn" data-page="weekly">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Weekly
-    </button>
-    <button class="nav-btn" data-page="map">
-      <svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>Map
-    </button>
-    <button class="nav-btn active" data-page="articles">
-      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>Articles
-    </button>
-    <button class="nav-btn" data-page="rackcheck">
-      <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Rack Check
-    </button>
-    <button class="nav-btn" data-page="analytics">
-      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analytics
-    </button>
-    <button class="nav-btn" data-page="admin" id="adminNavBtn">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M12 14c-5 0-8 2-8 4v1h16v-1c0-2-3-4-8-4z"/></svg>Admin
-    </button>
-  </nav>
-</div>
-
-<!-- INVENTORY DETAIL SHEET -->
-<div class="overlay" id="invOverlay" onclick="closeInvSheet()"></div>
-<div class="sheet" id="invSheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-hd"><h3 id="isTitle"></h3><p id="isSub"></p></div>
-  <div class="sheet-body">
-    <div class="status-bar unchecked" id="isStatusBar"><div class="sb-dot"></div><div class="sb-txt" id="isStatusTxt">Not checked</div><div class="sb-wk" id="isWk"></div></div>
-    <div class="field"><label>Rack</label><select id="isRack"><option value="">No rack</option></select></div>
-    <div class="field"><label>Qty in rack</label><input type="number" id="isQty" min="0" placeholder="enter quantity"></div>
-    <div class="field"><label>Expiry date</label><input type="date" id="isExpiry"></div>
+<!-- ── ARTICLE DETAIL SHEET ── -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sh"></div>
+  <div class="shd"><h3 id="shTitle"></h3><p id="shSub"></p></div>
+  <div class="shb">
+    <div class="stbar unchecked" id="shSt"><div class="sd"></div><div class="st" id="shStTxt">Not checked</div><div class="sw" id="shWk"></div></div>
+    <div class="field"><label>Rack</label><select id="shRack"><option value="">No rack</option></select></div>
+    <div class="field"><label>Qty in rack</label><input type="number" id="shQty" min="0" placeholder="0"></div>
+    <div class="field"><label>Expiry date</label><input type="date" id="shExpiry"></div>
     <div class="btn-row">
-      <button class="btn green" onclick="invMark('filled')">✓ Filled</button>
-      <button class="btn red" onclick="invMark('out')">✗ Out of stock</button>
+      <button class="btn green" onclick="markSheet('filled')">✓ Filled</button>
+      <button class="btn red" onclick="markSheet('out')">✗ Out of stock</button>
     </div>
+    <button class="btn gray" style="width:100%;margin-top:8px;" onclick="closeSheet()">Close</button>
   </div>
 </div>
 
-<!-- ARTICLE EDIT SHEET (admin) -->
-<div class="overlay" id="artOverlay" onclick="closeArtSheet()"></div>
-<div class="sheet" id="artSheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-hd"><h3 id="asTitle">Article</h3></div>
-  <div class="sheet-body">
-    <div class="field"><label>Article Name *</label><input id="asName" type="text" placeholder="e.g. Basmati Rice 5kg"></div>
-    <div class="field"><label>Article Number *</label><input id="asNo" type="text" placeholder="e.g. 10042"></div>
-    <div class="field"><label>Category / Group</label><input id="asGrp" type="text" placeholder="e.g. Rice & Grains"></div>
-    <div class="field"><label>Weekly sale quantity</label><input id="asWk" type="number" min="0" placeholder="0"></div>
-    <div class="field"><label>Normal price (€)</label><input id="asPrice" type="number" step="0.01" min="0" placeholder="0.00"></div>
-    <div class="field"><label>Barcode</label><input id="asBarcode" type="text" placeholder="EAN barcode"></div>
-    <div class="btn-row">
-      <button class="btn gray" onclick="closeArtSheet()">Cancel</button>
-      <button class="btn primary" id="asSaveBtn" onclick="saveArticle()">Save Article</button>
-    </div>
-    <button class="btn red" id="asDeleteBtn" style="width:100%;margin-top:8px;display:none;" onclick="deleteArticle()">Delete Article</button>
-  </div>
-</div>
-
-<!-- RACK EDIT SHEET (admin) -->
-<div class="overlay" id="rackOverlay" onclick="closeRackSheet()"></div>
-<div class="sheet" id="rackSheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-hd"><h3 id="rsTitle">Rack</h3></div>
-  <div class="sheet-body">
-    <div class="field"><label>Rack Code *</label><input id="rsCode" type="text" placeholder="e.g. S3" maxlength="6"></div>
-    <div class="field"><label>Rack Label *</label><input id="rsLabel" type="text" placeholder="e.g. Shelf 3"></div>
-    <div class="field"><label>Sort order</label><input id="rsOrder" type="number" min="0" placeholder="0"></div>
-    <div class="btn-row">
-      <button class="btn gray" onclick="closeRackSheet()">Cancel</button>
-      <button class="btn primary" onclick="saveRack()">Save Rack</button>
-    </div>
-    <button class="btn red" id="rsDeleteBtn" style="width:100%;margin-top:8px;display:none;" onclick="deleteRack()">Delete Rack</button>
-  </div>
-</div>
-
-
-
-<!-- SCAN MODAL -->
+<!-- ── SCAN MODAL ── -->
 <div class="scan-modal" id="scanModal">
-  <div class="scan-top"><span style="color:#fff;font-family:var(--mono);font-size:12px;">SCAN BARCODE</span><button id="closeScanBtn">✕ Close</button></div>
-  <div style="position:relative;flex:1;"><video id="scanVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video><div class="reticle"></div></div>
+  <div class="scan-top">
+    <span style="color:#fff;font-family:var(--mono);font-size:12px;">SCAN BARCODE</span>
+    <button onclick="stopScan()">✕ Close</button>
+  </div>
+  <div style="position:relative;flex:1;">
+    <video id="scanVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+    <div class="reticle"></div>
+  </div>
   <div class="scan-hint" id="scanHint">Hold barcode inside the frame</div>
   <input type="text" id="manualBarcode" placeholder="Or type barcode + Enter" style="margin:10px;font-family:var(--mono);font-size:13px;padding:10px;border:1px solid #444;border-radius:6px;background:#111;color:#fff;">
 </div>
@@ -303,297 +342,363 @@ td .action.red{border-color:var(--red);color:var(--red);}
 <div class="snackbar" id="snackbar"></div>
 
 <script>
-// ─── Supabase init ─────────────────────────────────────────────────
-const { createClient } = supabase;
-const sb = createClient(
-  'https://kviymawyfurulohnuewf.supabase.co',
-  'sb_publishable_w3fwxNt4ZMvOXIid6UNXSQ_NPlse-JJ'
-);
-
-// ─── Global state ──────────────────────────────────────────────────
-let CURRENT_USER = null;
-let CURRENT_PROFILE = null;
-let ARTICLES = [], INV = {}, LOG = [], RACKS = [], SETTINGS = {};
-let currentPage = 'articles';
+// ─── STATE ─────────────────────────────────────────────────────────
+let ARTICLES = [];      // loaded from file
+let STATE = {};         // no -> {rack, status, qty, expiry, ts}
+let SESSION_INFO = {};  // metadata about current session
+let currentTab = 'dashboard';
 let mapRack = null;
 let artFilter = 'all', artQuery = '';
-let adminTab = 'articles';
-let sheetArticleNo = null;
-let editArticleNo = null;
-let editRackId = null;
+let sheetNo = null;
+let checkFilter = 'unchecked', checkRack = 'ALL', checkQuery = '';
+const RACKS = [
+  {code:'S1',label:'Shelf 1'},
+  {code:'S2',label:'Shelf 2'},
+  {code:'G1',label:'Gondola 1'},
+  {code:'G2',label:'Gondola 2'},
+  {code:'FRZ',label:'Frozen Rack'},
+  {code:'ATR',label:'Atta & Rice Rack'},
+  {code:'PDR',label:'Paneer & Dosa Rack'}
+];
 
-const isAdmin = () => CURRENT_PROFILE?.role === 'admin';
+// ─── UTILS ─────────────────────────────────────────────────────────
 function todayStr(){ return new Date().toISOString().slice(0,10); }
-function nowIso(){ return new Date().toISOString(); }
-function barcodes(a){ return (a.barcode||'').split('|').map(s=>s.trim()).filter(Boolean); }
-
-// ─── Snackbar ──────────────────────────────────────────────────────
-function snack(msg, dur=2500){
-  const el = document.getElementById('snackbar');
-  el.textContent = msg; el.style.display = 'block';
-  clearTimeout(snack._t);
-  snack._t = setTimeout(()=>{ el.style.display='none'; }, dur);
-}
-
-// ─── AUTH ──────────────────────────────────────────────────────────
-async function doLogin(){
-  const email = document.getElementById('authEmail').value.trim();
-  const pass = document.getElementById('authPass').value;
-  const btn = document.getElementById('loginBtn');
-  const errEl = document.getElementById('authErr');
-  errEl.style.display='none';
-  if(!email||!pass){ errEl.textContent='Enter email and password.'; errEl.style.display='block'; return; }
-  btn.disabled=true; btn.textContent='Signing in…';
-  const {data, error} = await sb.auth.signInWithPassword({email, password:pass});
-  if(error){ errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign In'; return; }
-  await afterLogin(data.user);
-}
-
-async function doForgotPassword(){
-  const email = document.getElementById('authEmail').value.trim();
-  if(!email){ document.getElementById('authErr').textContent='Enter your email first.'; document.getElementById('authErr').style.display='block'; return; }
-  const {error} = await sb.auth.resetPasswordForEmail(email);
-  const msgEl = document.getElementById('authMsg');
-  if(error){ document.getElementById('authErr').textContent=error.message; document.getElementById('authErr').style.display='block'; }
-  else { msgEl.textContent='Password reset email sent — check your inbox.'; msgEl.style.display='block'; }
-}
-
-async function doLogout(){
-  await sb.auth.signOut();
-  CURRENT_USER=null; CURRENT_PROFILE=null;
-  document.getElementById('appScreen').style.display='none';
-  document.getElementById('authScreen').style.display='';
-  document.getElementById('authPass').value='';
-}
-
-async function afterLogin(user){
-  CURRENT_USER = user;
-  const {data: profile} = await sb.from('profiles').select('*').eq('id', user.id).single();
-  CURRENT_PROFILE = profile;
-  document.getElementById('authScreen').style.display='none';
-  document.getElementById('appScreen').style.display='';
-  document.getElementById('hdrUser').textContent = profile?.name || user.email;
-  document.getElementById('adminNavBtn').style.display='';
-  await loadAll();
-  updateHeader();
-  showPage('articles');
-}
-
-// ─── Data loading ──────────────────────────────────────────────────
-async function fetchAllRows(table, query){
-  // Fetch in batches of 1000 to bypass Supabase row limit
-  let all = [], from = 0, batchSize = 1000;
-  while(true){
-    const { data, error } = await query(from, from + batchSize - 1);
-    if(error || !data || !data.length) break;
-    all = all.concat(data);
-    if(data.length < batchSize) break;
-    from += batchSize;
-  }
-  return all;
-}
-
-async function loadAll(){
-  const [inv, log, racks, settings] = await Promise.all([
-    sb.from('inventory').select('*').limit(5000),
-    sb.from('activity_log').select('*').order('created_at', {ascending:false}).limit(500),
-    sb.from('racks').select('*').order('sort_order'),
-    sb.from('app_settings').select('*')
-  ]);
-
-  // Fetch articles in batches to get all 2112+
-  const arts = await fetchAllRows('articles', (from, to) =>
-    sb.from('articles').select('*').order('name').range(from, to)
-  );
-
-  ARTICLES = arts.map(a=>({no:String(a.no),name:a.name||'',grp:a.grp||'',wk:a.weekly_sale||0,minpo:a.min_po||0,price:a.normal_price||0,barcode:a.barcode||''}));
-  INV={}; (inv.data||[]).forEach(r=>INV[r.article_no]=r);
-  LOG = log.data||[];
-  RACKS = racks.data||[];
-  SETTINGS={}; (settings.data||[]).forEach(s=>SETTINGS[s.key]=s.value);
-}
-
-function updateHeader(){
-  document.getElementById('hdrStoreName').textContent = SETTINGS.store_name||'Inventory Control';
-  document.getElementById('hdrAddress').textContent = SETTINGS.store_address||'';
-}
-
-function getEntry(no){
-  if(!INV[no]) INV[no]={article_no:no,rack:'',status:'unchecked',qty:null,expiry:null};
-  return INV[no];
-}
-async function saveEntry(no,patch){
-  const e=getEntry(no); Object.assign(e,patch);
-  e.updated_by=CURRENT_PROFILE?.name||CURRENT_USER?.email||'unknown';
-  e.updated_at=nowIso();
-  const {error}=await sb.from('inventory').upsert({article_no:no,...e},{onConflict:'article_no'});
-  if(error) snack('Save failed: '+error.message);
-}
-function logAction(no,action,qty){
-  LOG.unshift({article_no:no,staff_name:CURRENT_PROFILE?.name||'?',action,qty:qty??null,created_at:nowIso()});
-  sb.from('activity_log').insert({article_no:no,staff_name:CURRENT_PROFILE?.name||'?',action,qty:qty??null});
-}
-function deriveStatus(e,a){
+function snack(msg){ const el=document.getElementById('snackbar'); el.textContent=msg; el.style.display='block'; clearTimeout(snack._t); snack._t=setTimeout(()=>el.style.display='none',2500); }
+function getEntry(no){ if(!STATE[no]) STATE[no]={rack:'',status:'unchecked',qty:null,expiry:null,ts:null}; return STATE[no]; }
+function deriveStatus(a){
+  const e=getEntry(a.no);
   if(e.status==='out') return 'out';
   if(e.qty===null||e.qty===undefined||e.qty==='') return e.status==='filled'?'filled':'unchecked';
   const q=Number(e.qty),r=Number(a.wk);
-  if(q<=0)return'out'; if(r>0&&q<r)return'low'; return'filled';
+  if(q<=0) return 'out'; if(r>0&&q<r) return 'low'; return 'filled';
 }
 function rackArticles(code){ return ARTICLES.filter(a=>getEntry(a.no).rack===code); }
 function rackFillPct(code){
-  const items=rackArticles(code); if(!items.length)return null;
-  return Math.round(items.filter(a=>deriveStatus(getEntry(a.no),a)==='filled').length/items.length*100);
+  const items=rackArticles(code); if(!items.length) return null;
+  return Math.round(items.filter(a=>deriveStatus(a)==='filled').length/items.length*100);
 }
 function rackColor(p){ return p===null?'':p>=80?'green':p>=40?'yellow':'red'; }
 
-// ─── Navigation ────────────────────────────────────────────────────
-function showPage(page){
-  currentPage=page;
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
-  document.getElementById('pg-'+page).classList.add('active');
-  renderPage(page);
+// ─── SAVE / LOAD ───────────────────────────────────────────────────
+function saveSession(){
+  try{
+    localStorage.setItem('bgs-state', JSON.stringify(STATE));
+    localStorage.setItem('bgs-session', JSON.stringify(SESSION_INFO));
+    localStorage.setItem('bgs-articles', JSON.stringify(ARTICLES));
+  }catch(e){ console.warn('save failed',e); }
 }
-document.getElementById('bottomNav').addEventListener('click',e=>{
-  const btn=e.target.closest('.nav-btn');
-  if(btn&&btn.dataset.page) showPage(btn.dataset.page);
+
+function loadPrevSession(){
+  try{
+    const st = localStorage.getItem('bgs-state');
+    const si = localStorage.getItem('bgs-session');
+    const ar = localStorage.getItem('bgs-articles');
+    if(st && si && ar){
+      STATE = JSON.parse(st);
+      SESSION_INFO = JSON.parse(si);
+      ARTICLES = JSON.parse(ar);
+      showApp();
+    }
+  }catch(e){ snack('Could not load previous session'); }
+}
+
+// ─── FILE UPLOAD ───────────────────────────────────────────────────
+function handleFileUpload(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const errEl = document.getElementById('uploadErr');
+  const progEl = document.getElementById('uploadProgress');
+  errEl.style.display='none';
+  progEl.style.display='block';
+  progEl.textContent = 'Reading ' + file.name + '…';
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+
+  if(ext === 'csv'){
+    reader.onload = e => parseCSV(e.target.result, file.name);
+    reader.readAsText(file);
+  } else if(ext === 'xlsx' || ext === 'xls'){
+    reader.onload = e => parseExcel(e.target.result, file.name);
+    reader.readAsArrayBuffer(file);
+  } else {
+    errEl.textContent = 'Please upload an .xlsx, .xls or .csv file.';
+    errEl.style.display='block';
+    progEl.style.display='none';
+  }
+}
+
+function parseExcel(buffer, filename){
+  try{
+    const wb = XLSX.read(buffer, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+    processRows(rows, filename, 'excel');
+  }catch(e){
+    document.getElementById('uploadErr').textContent = 'Error reading Excel: ' + e.message;
+    document.getElementById('uploadErr').style.display='block';
+    document.getElementById('uploadProgress').style.display='none';
+  }
+}
+
+function parseCSV(text, filename){
+  try{
+    const lines = text.split('\n').filter(l=>l.trim());
+    const headers = lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim());
+    const rows = lines.slice(1).map(line=>{
+      const vals = [];
+      let cur='', inQ=false;
+      for(let i=0;i<line.length;i++){
+        if(line[i]==='"') inQ=!inQ;
+        else if(line[i]===',' && !inQ){ vals.push(cur); cur=''; }
+        else cur+=line[i];
+      }
+      vals.push(cur);
+      const obj={};
+      headers.forEach((h,i)=>obj[h]=(vals[i]||'').trim());
+      return obj;
+    });
+    processRows(rows, filename, 'csv');
+  }catch(e){
+    document.getElementById('uploadErr').textContent = 'Error reading CSV: ' + e.message;
+    document.getElementById('uploadErr').style.display='block';
+    document.getElementById('uploadProgress').style.display='none';
+  }
+}
+
+function processRows(rows, filename, type){
+  const progEl = document.getElementById('uploadProgress');
+  const errEl = document.getElementById('uploadErr');
+
+  // Detect file type by columns
+  const keys = Object.keys(rows[0]||{});
+  const isExcelMaster = keys.includes('BharatArticle_No') || keys.includes('Artilce_Group');
+  const isRackCSV = keys.includes('Article No') || keys.includes('Rack');
+
+  let parsed = [];
+
+  if(isExcelMaster){
+    // Article master Excel format
+    rows.forEach(r=>{
+      if(!r['BharatArticle_No'] || r['Artilce_Group']==='Not used') return;
+      parsed.push({
+        no: String(r['BharatArticle_No']).replace('.0',''),
+        name: String(r['BharatArticle_Name']||'').trim(),
+        grp: String(r['Artilce_Group']||'').trim(),
+        wk: Number(r['52WK_RR'])||0,
+        wkrev: Number(r['WEEKLY_AVG_REVENUE'])||0,
+        price: Number(r['Normal_Price'])||0,
+        bbprice: Number(r['BB_Price'])||0,
+        barcode: String(r['BARCODE']||'').trim(),
+        minpo: Number(r['MIN_PO_4WK_PIECE'])||0,
+        stock: Number(r['REM_STK'])||0,
+        catA: String(r['CATEGORY_A']||'').trim(),
+        catB: String(r['CATEGORY_B']||'').trim(),
+      });
+    });
+  } else if(isRackCSV){
+    // Rack assignment CSV format
+    rows.forEach(r=>{
+      const no = String(r['Article No']||'').replace('.0','').trim();
+      if(!no || no.startsWith('===') || no==='Article No') return;
+      parsed.push({
+        no, name: String(r['Article Name']||'').trim(),
+        grp: String(r['Category']||'').trim(),
+        wk: Number(r['Weekly Sale'])||0,
+        wkrev: (Number(r['Weekly Sale'])||0)*(Number(r['Price (EUR)'])||0),
+        price: Number(r['Price (EUR)'])||0,
+        bbprice: 0, barcode:'', minpo:0,
+        stock: Number(r['Qty in Rack'])||0,
+        catA:'', catB:'',
+        _rack: String(r['Rack']||'').trim(),
+        _status: String(r['Status']||'unchecked').trim(),
+        _qty: r['Qty in Rack']!==''?Number(r['Qty in Rack']):null,
+      });
+    });
+  } else {
+    errEl.textContent = 'Could not recognise file format. Please use the article master Excel or rack assignment CSV.';
+    errEl.style.display='block'; progEl.style.display='none'; return;
+  }
+
+  if(parsed.length === 0){
+    errEl.textContent = 'No articles found in file.';
+    errEl.style.display='block'; progEl.style.display='none'; return;
+  }
+
+  ARTICLES = parsed;
+  STATE = {};
+
+  // If rack CSV, pre-load rack assignments
+  if(isRackCSV){
+    parsed.forEach(a=>{
+      STATE[a.no] = {
+        rack: a._rack||'', status: a._status||'unchecked',
+        qty: a._qty, expiry:null, ts:null
+      };
+    });
+  }
+
+  SESSION_INFO = {
+    filename, type, loadedAt: new Date().toLocaleString('de-DE'),
+    count: parsed.length, format: isExcelMaster?'master':'rack-csv'
+  };
+
+  saveSession();
+  progEl.style.display='none';
+  snack('Loaded ' + parsed.length + ' articles ✓');
+  showApp();
+}
+
+function showApp(){
+  document.getElementById('uploadScreen').style.display='none';
+  document.getElementById('mainHeader').style.display='';
+  document.getElementById('mainContent').style.display='';
+  document.getElementById('fileChip').textContent = SESSION_INFO.filename||'';
+  document.getElementById('hdrSub').textContent = SESSION_INFO.count + ' articles · ' + (SESSION_INFO.loadedAt||'');
+  populateRackSelects();
+  renderTab('dashboard');
+}
+
+function switchFile(){
+  if(!confirm('Load a new file? Current session will be saved and can be resumed.')) return;
+  saveSession();
+  document.getElementById('uploadScreen').style.display='';
+  document.getElementById('mainHeader').style.display='none';
+  document.getElementById('mainContent').style.display='none';
+}
+
+function populateRackSelects(){
+  ['shRack'].forEach(id=>{
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="">No rack</option>';
+    RACKS.forEach(r=>{ const o=document.createElement('option'); o.value=r.code; o.textContent=r.code+' — '+r.label; sel.appendChild(o); });
+  });
+}
+
+// ─── NAVIGATION ────────────────────────────────────────────────────
+document.getElementById('navTabs').addEventListener('click', e=>{
+  const btn=e.target.closest('button'); if(!btn||!btn.dataset.tab)return;
+  currentTab=btn.dataset.tab;
+  document.querySelectorAll('#navTabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pg-'+currentTab).classList.add('active');
+  renderTab(currentTab);
 });
 
-function renderPage(page){
-  const el=document.getElementById('pg-'+page);
-  if(page==='dashboard') renderDashboard(el);
-  else if(page==='map') renderMap(el);
-  else if(page==='articles') renderArticles(el);
-  else if(page==='admin') renderAdmin(el);
-  else if(page==='analytics') renderAnalytics(el);
-  else if(page==='rackcheck') renderRackCheck(el);
-  else if(page==='weekly') renderWeekly(el);
+function renderTab(tab){
+  const el=document.getElementById('pg-'+tab);
+  if(tab==='dashboard') renderDashboard(el);
+  else if(tab==='map'){ mapRack=null; renderMap(el); }
+  else if(tab==='articles') renderArticles(el);
+  else if(tab==='check') renderCheck(el);
+  else if(tab==='reports') renderReports(el);
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────────────
 function renderDashboard(el){
-  let filled=0,low=0,out=0,unc=0;
-  ARTICLES.forEach(a=>{ const s=deriveStatus(getEntry(a.no),a); if(s==='filled')filled++;else if(s==='low')low++;else if(s==='out')out++;else unc++; });
+  let filled=0,low=0,out=0,unc=0,totalRev=0,riskRev=0;
+  ARTICLES.forEach(a=>{
+    const s=deriveStatus(a);
+    if(s==='filled')filled++;else if(s==='low')low++;else if(s==='out')out++;else unc++;
+    totalRev += a.wkrev||0;
+    if(s==='out') riskRev += a.wkrev||0;
+    if(s==='low') riskRev += (a.wkrev||0)*0.5;
+  });
   const total=ARTICLES.length, pct=total?Math.round((filled+low+out)/total*100):0;
   el.innerHTML=`
-    <div class="sec">Overview</div>
-    <div class="stat-grid">
-      <div class="stat-card"><div class="n">${pct}%</div><div class="l">Checked</div></div>
-      <div class="stat-card green"><div class="n">${filled}</div><div class="l">Fully stocked</div></div>
-      <div class="stat-card yellow"><div class="n">${low}</div><div class="l">Low stock</div></div>
-      <div class="stat-card red" style="cursor:pointer;" onclick="artFilter='out';showPage('articles')"><div class="n">${out}</div><div class="l">Out of stock ›</div></div>
+    <div class="sec">Overview · ${new Date().toLocaleDateString('de-DE')}</div>
+    <div class="sg">
+      <div class="sc"><div class="n">${pct}%</div><div class="l">Checked</div></div>
+      <div class="sc green"><div class="n">${filled}</div><div class="l">Fully stocked</div></div>
+      <div class="sc yellow"><div class="n">${low}</div><div class="l">Low stock</div></div>
+      <div class="sc red"><div class="n">${out}</div><div class="l">Out of stock</div></div>
+    </div>
+    <div style="background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--green);">€${Math.round(totalRev).toLocaleString()}</div><div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--gray);">Weekly revenue</div></div>
+      <div><div style="font-family:var(--display);font-size:20px;font-weight:700;color:var(--red);">€${Math.round(riskRev).toLocaleString()}</div><div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--gray);">Revenue at risk</div></div>
     </div>
     <div class="sec">Racks</div>
-    <div class="rack-grid" id="dRacks"></div>
-    <div class="sec">Alerts — tap to update</div>
+    <div class="rg" id="dRacks"></div>
+    <div class="sec">🚨 Top alerts (by revenue)</div>
     <div id="dAlerts"></div>
-    <div class="sec">Staff today</div>
-    <div id="dStaff"></div>
-    <div style="display:flex;gap:8px;margin-top:16px;">
-      <button onclick="doRefresh()" style="flex:1;font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;">↺ Refresh data</button>
-      <button onclick="exportRefill()" style="flex:1;font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;">⬇ Refill CSV</button>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button onclick="renderTab('dashboard')" style="flex:1;font-family:var(--mono);font-size:11px;padding:10px;border:1px solid var(--line);border-radius:var(--r);background:var(--paper);cursor:pointer;box-shadow:var(--shadow);">↺ Refresh</button>
+      <button onclick="exportRefill()" style="flex:1;font-family:var(--mono);font-size:11px;padding:10px;border:1px solid var(--line);border-radius:var(--r);background:var(--paper);cursor:pointer;box-shadow:var(--shadow);">⬇ Refill CSV</button>
     </div>
   `;
   const rg=el.querySelector('#dRacks');
   RACKS.forEach(r=>{
     const p=rackFillPct(r.code),c=rackColor(p);
-    const t=document.createElement('div'); t.className='rack-tile '+(c||'');
+    const t=document.createElement('div'); t.className='rt '+(c||'');
     t.innerHTML=`<div class="rn">${r.code}</div><div class="rl">${r.label}</div><div class="rp">${p===null?'—':p+'%'}</div><div class="rb"><i style="width:${p||0}%"></i></div><div class="rc">${rackArticles(r.code).length} articles</div>`;
-    t.onclick=()=>{ mapRack=r.code; showPage('map'); };
+    t.onclick=()=>{ currentTab='map'; document.querySelectorAll('#navTabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab==='map')); document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('pg-map').classList.add('active'); mapRack=r.code; renderMap(document.getElementById('pg-map')); };
     rg.appendChild(t);
   });
   const al=el.querySelector('#dAlerts');
-  const alerts=ARTICLES.filter(a=>{ const s=deriveStatus(getEntry(a.no),a); return s==='low'||s==='out'; })
-    .sort((a,b)=>(b.wk-(getEntry(b.no).qty||0))-(a.wk-(getEntry(a.no).qty||0))).slice(0,20);
+  const alerts=ARTICLES.filter(a=>{ const s=deriveStatus(a); return s==='low'||s==='out'; }).sort((a,b)=>(b.wkrev||0)-(a.wkrev||0)).slice(0,15);
   if(!alerts.length){ al.innerHTML='<div class="empty" style="padding:8px 0;">No alerts 👍</div>'; }
   else alerts.forEach(a=>{
-    const e=getEntry(a.no),s=deriveStatus(e,a);
-    const d=document.createElement('div'); d.className='list-item';
-    d.innerHTML=`<div class="list-dot ${s}"></div><div class="list-info"><div class="list-name">${a.name}</div><div class="list-sub">${s==='out'?'OUT OF STOCK':'Low: '+e.qty+'/'+a.wk+' wk'} · ${e.rack||'no rack'}</div></div><div class="arr">›</div>`;
-    d.onclick=()=>openInvSheet(a.no); al.appendChild(d);
+    const s=deriveStatus(a),e=getEntry(a.no);
+    const d=document.createElement('div'); d.className='ar';
+    d.style.cssText='background:var(--paper);border:1px solid '+(s==='out'?'var(--red)':'var(--yellow)')+';border-radius:8px;margin-bottom:6px;box-shadow:var(--shadow);';
+    d.innerHTML=`<div class="dot ${s}"></div><div class="ai"><div class="an">${a.name}</div><div class="as">${s==='out'?'OUT OF STOCK':'Low: '+(e.qty||0)+'/'+a.wk+' wk'} · ${e.rack||'no rack'}</div></div><span class="wkrev">€${Math.round(a.wkrev||0)}/wk</span>`;
+    d.onclick=()=>openSheet(a.no); al.appendChild(d);
   });
-  const sf=el.querySelector('#dStaff');
-  const counts={}; LOG.filter(l=>(l.created_at||'').slice(0,10)===todayStr()).forEach(l=>counts[l.staff_name]=(counts[l.staff_name]||0)+1);
-  const names=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
-  if(!names.length){ sf.innerHTML='<div class="empty" style="padding:8px 0;">No activity yet today.</div>'; }
-  else{ const tbl=document.createElement('table'); tbl.innerHTML='<tr><th>Staff member</th><th>Updates today</th></tr>'+names.map(n=>`<tr><td>${n}</td><td>${counts[n]}</td></tr>`).join(''); sf.appendChild(tbl); }
 }
 
-// ─── STORE MAP ─────────────────────────────────────────────────────
+// ─── MAP / RACK VIEW ───────────────────────────────────────────────
 function renderMap(el){
-  if(mapRack){ renderRackView(el,mapRack); return; }
-  el.innerHTML=`<div class="sec">Tap a rack to open checklist</div><div class="rack-grid" id="mapGrid"></div>`;
-  const g=el.querySelector('#mapGrid');
+  if(mapRack){ renderRackView(el, mapRack); return; }
+  el.innerHTML=`<div class="sec">Tap a rack to open its checklist</div><div class="rg" id="mg"></div>`;
+  const g=el.querySelector('#mg');
   RACKS.forEach(r=>{
     const p=rackFillPct(r.code),c=rackColor(p);
-    const t=document.createElement('div'); t.className='rack-tile '+(c||'');
+    const t=document.createElement('div'); t.className='rt '+(c||'');
     t.innerHTML=`<div class="rn">${r.code}</div><div class="rl">${r.label}</div><div class="rp">${p===null?'—':p+'%'}</div><div class="rb"><i style="width:${p||0}%"></i></div><div class="rc">${rackArticles(r.code).length} articles</div>`;
-    t.onclick=()=>{ mapRack=r.code; renderPage('map'); }; g.appendChild(t);
+    t.onclick=()=>{ mapRack=r.code; renderMap(el); }; g.appendChild(t);
   });
 }
 
-function renderRackView(el,code){
+function renderRackView(el, code){
   const rack=RACKS.find(r=>r.code===code)||{code,label:code};
-  const items=rackArticles(code), p=rackFillPct(code);
-  let rf='all',rq='';
+  let items=rackArticles(code), rf='all', rq='';
+  const p=rackFillPct(code);
   el.innerHTML=`
-    <button class="back-btn" onclick="mapRack=null;renderPage('map')">← All racks</button>
+    <button class="back-btn" onclick="mapRack=null;renderMap(document.getElementById('pg-map'))">← All racks</button>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <span style="font-size:26px;font-weight:900;">${rack.code}</span>
+      <span style="font-family:var(--display);font-size:24px;font-weight:900;">${rack.code}</span>
       <div><div style="font-size:14px;font-weight:600;">${rack.label}</div><div style="font-family:var(--mono);font-size:10px;color:var(--gray);">${items.length} articles · ${p===null?'—':p+'%'} filled</div></div>
     </div>
-    <div class="filters" id="rackFilters">
-      <button class="fp active" data-f="all">All</button>
-      <button class="fp" data-f="unchecked">Unchecked</button>
+    <div style="height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:10px;"><div style="height:100%;width:${p||0}%;background:${(p||0)>=80?'var(--green)':(p||0)>=40?'var(--yellow)':'var(--red)'};border-radius:4px;"></div></div>
+    <div class="filters" id="rfil">
+      <button class="fp active" data-f="all">All (${items.length})</button>
+      <button class="fp" data-f="unchecked">Todo (${items.filter(a=>deriveStatus(a)==='unchecked').length})</button>
       <button class="fp" data-f="filled">Filled</button>
       <button class="fp" data-f="low">Low</button>
       <button class="fp" data-f="out">Out</button>
     </div>
-    <div class="search-row"><input id="rackSrch" type="text" placeholder="Search this rack…"></div>
-    <div id="rackItems"></div>
-    <div class="sec">Assign articles to ${rack.code}</div>
-    <div class="search-row"><input id="assignSrch" type="text" placeholder="Search to assign here…"></div>
-    <div id="assignItems"></div>
+    <div class="sbar"><input id="rsch" type="text" placeholder="Search ${rack.code}…"></div>
+    <div id="rlist"></div>
   `;
-  function drawRack(){
-    const list=el.querySelector('#rackItems'); list.innerHTML='';
-    items.filter(a=>{
-      const s=deriveStatus(getEntry(a.no),a);
-      if(rf!=='all'&&s!==rf)return false;
-      if(rq&&!a.name.toLowerCase().includes(rq)&&!a.no.includes(rq))return false;
-      return true;
-    }).forEach(a=>{ const row=makeArtRow(a); list.appendChild(row); });
-    if(!list.children.length) list.innerHTML='<div class="empty">No articles match.</div>';
+  function draw(){
+    const list=el.querySelector('#rlist'); list.innerHTML='';
+    const f=items.filter(a=>{ if(rf!=='all'&&deriveStatus(a)!==rf)return false; if(rq&&!a.name.toLowerCase().includes(rq)&&!a.no.includes(rq))return false; return true; });
+    if(!f.length){list.innerHTML='<div class="empty">No articles match.</div>';return;}
+    f.forEach(a=>list.appendChild(makeRow(a)));
   }
-  el.querySelectorAll('#rackFilters .fp').forEach(p=>{ p.onclick=()=>{ el.querySelectorAll('#rackFilters .fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); rf=p.dataset.f; drawRack(); }; });
-  el.querySelector('#rackSrch').addEventListener('input',e=>{ rq=e.target.value.toLowerCase(); drawRack(); });
-  drawRack();
-  const ai=el.querySelector('#assignItems');
-  el.querySelector('#assignSrch').addEventListener('input',e=>{
-    const q=e.target.value.toLowerCase(); ai.innerHTML='';
-    if(q.length<2){ai.innerHTML='<div class="empty">Type 2+ characters.</div>';return;}
-    const hits=ARTICLES.filter(a=>getEntry(a.no).rack!==code&&(a.name.toLowerCase().includes(q)||a.no.includes(q))).slice(0,12);
-    if(!hits.length){ai.innerHTML='<div class="empty">No matches.</div>';return;}
-    hits.forEach(a=>{
-      const e=getEntry(a.no);
-      const row=document.createElement('div'); row.className='list-item';
-      row.innerHTML=`<div class="list-dot ${deriveStatus(e,a)}"></div><div class="list-info"><div class="list-name">${a.name}</div><div class="list-sub">${e.rack?'Currently: '+e.rack:'Unassigned'}</div></div>`;
-      const btn=document.createElement('button'); btn.className='fp active'; btn.textContent='+ '+code;
-      btn.onclick=async(ev)=>{ ev.stopPropagation(); await saveEntry(a.no,{rack:code}); snack(a.name+' → '+code); renderPage('map'); };
-      row.appendChild(btn); ai.appendChild(row);
-    });
-  });
+  el.querySelectorAll('#rfil .fp').forEach(fp=>{ fp.onclick=()=>{ rf=fp.dataset.f; el.querySelectorAll('#rfil .fp').forEach(x=>x.classList.remove('active')); fp.classList.add('active'); draw(); }; });
+  el.querySelector('#rsch').addEventListener('input',e=>{ rq=e.target.value.toLowerCase(); draw(); });
+  draw();
 }
 
 // ─── ARTICLES PAGE ─────────────────────────────────────────────────
 function renderArticles(el){
   el.innerHTML=`
-    <div class="search-row">
-      <input id="artSrch" type="text" placeholder="Search ${ARTICLES.length} articles…" value="${artQuery}">
-      <button class="icon-btn" onclick="openScanner()" title="Scan barcode">
+    <div class="sbar">
+      <input id="aSrch" type="text" placeholder="Search ${ARTICLES.length} articles…" value="${artQuery}">
+      <button class="ibutton" onclick="openScan()">
         <svg viewBox="0 0 24 24"><path d="M2 4h2v16H2z"/><path d="M6 4h1v16H6z"/><path d="M9 4h2v16H9z"/><path d="M13 4h1v16h-1z"/><path d="M16 4h2v16h-2z"/><path d="M20 4h2v16h-2z"/></svg>
       </button>
-      ${isAdmin()?`<button class="icon-btn" onclick="openArtSheet(null)" title="Add article"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`:''}
     </div>
     <div class="filters">
       <button class="fp ${artFilter==='all'?'active':''}" data-f="all">All</button>
@@ -603,1054 +708,337 @@ function renderArticles(el){
       <button class="fp ${artFilter==='out'?'active':''}" data-f="out">Out of stock</button>
       <button class="fp ${artFilter==='norack'?'active':''}" data-f="norack">No rack</button>
     </div>
-    <div id="artList"></div>
+    <div id="aList"></div>
   `;
-  el.querySelector('#artSrch').addEventListener('input',e=>{ artQuery=e.target.value.toLowerCase(); drawArtList(el.querySelector('#artList')); });
-  el.querySelectorAll('.fp').forEach(p=>{ p.onclick=()=>{ artFilter=p.dataset.f; el.querySelectorAll('.fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); drawArtList(el.querySelector('#artList')); }; });
-  drawArtList(el.querySelector('#artList'));
+  el.querySelector('#aSrch').addEventListener('input',e=>{ artQuery=e.target.value.toLowerCase(); drawArtList(el.querySelector('#aList')); });
+  el.querySelectorAll('.fp').forEach(fp=>{ fp.onclick=()=>{ artFilter=fp.dataset.f; el.querySelectorAll('.fp').forEach(x=>x.classList.remove('active')); fp.classList.add('active'); drawArtList(el.querySelector('#aList')); }; });
+  drawArtList(el.querySelector('#aList'));
 }
 
 function drawArtList(container){
   container.innerHTML='';
   const filtered=ARTICLES.filter(a=>{
-    const e=getEntry(a.no),s=deriveStatus(e,a);
+    const s=deriveStatus(a), e=getEntry(a.no);
     if(artFilter==='norack'&&e.rack)return false;
     if(artFilter!=='all'&&artFilter!=='norack'&&s!==artFilter)return false;
-    if(artQuery&&!a.name.toLowerCase().includes(artQuery)&&!a.no.includes(artQuery)&&!barcodes(a).some(b=>b.includes(artQuery)))return false;
+    if(artQuery&&!a.name.toLowerCase().includes(artQuery)&&!a.no.includes(artQuery)&&!a.barcode.includes(artQuery))return false;
     return true;
   });
   if(!filtered.length){container.innerHTML='<div class="empty">No articles match.</div>';return;}
   if(artQuery||artFilter!=='all'){
-    filtered.slice(0,150).forEach(a=>container.appendChild(makeArtRow(a)));
-    if(filtered.length>150){ const n=document.createElement('div'); n.className='empty'; n.textContent=`Showing 150 of ${filtered.length} — refine search.`; container.appendChild(n); }
+    filtered.slice(0,150).forEach(a=>container.appendChild(makeRow(a)));
+    if(filtered.length>150){const n=document.createElement('div');n.className='empty';n.textContent='Showing 150 of '+filtered.length+' — refine search.';container.appendChild(n);}
     return;
   }
   const groups={};
-  filtered.forEach(a=>{ if(!groups[a.grp])groups[a.grp]=[]; groups[a.grp].push(a); });
+  filtered.forEach(a=>{if(!groups[a.grp])groups[a.grp]=[];groups[a.grp].push(a);});
   Object.keys(groups).sort().forEach(grp=>{
-    const items=groups[grp];
-    const sc={filled:0,low:0,out:0,unchecked:0};
-    items.forEach(a=>{ sc[deriveStatus(getEntry(a.no),a)]++; });
+    const items=groups[grp], sc={filled:0,low:0,out:0,unchecked:0};
+    items.forEach(a=>sc[deriveStatus(a)]++);
     const block=document.createElement('div'); block.className='grp';
-    const dots=['filled','low','out','unchecked'].filter(s=>sc[s]>0).map(s=>`<div class="grp-dot" style="background:${s==='filled'?'var(--green)':s==='low'?'var(--yellow)':s==='out'?'var(--red)':'var(--line)'}"></div>`).join('');
-    block.innerHTML=`<div class="grp-h"><div class="grp-title">${grp}</div><div class="grp-meta"><div class="grp-dots">${dots}</div><div class="grp-cnt">${items.length}</div><div class="grp-arr">›</div></div></div><div class="grp-body"></div>`;
+    const dots=['filled','low','out','unchecked'].filter(s=>sc[s]>0).map(s=>'<div class="grp-dot" style="background:'+(s==='filled'?'var(--green)':s==='low'?'var(--yellow)':s==='out'?'var(--red)':'var(--line)')+'"></div>').join('');
+    block.innerHTML='<div class="grp-h"><div class="grp-title">'+grp+'</div><div class="grp-meta"><div class="grp-dots">'+dots+'</div><div class="grp-cnt">'+items.length+'</div><div class="grp-arr">›</div></div></div><div class="grp-body"></div>';
     const body=block.querySelector('.grp-body'); let loaded=false;
-    block.querySelector('.grp-h').onclick=()=>{ block.classList.toggle('open'); if(block.classList.contains('open')&&!loaded){ items.forEach(a=>body.appendChild(makeArtRow(a))); loaded=true; } };
+    block.querySelector('.grp-h').onclick=()=>{ block.classList.toggle('open'); if(block.classList.contains('open')&&!loaded){items.forEach(a=>body.appendChild(makeRow(a)));loaded=true;} };
     container.appendChild(block);
   });
 }
 
-function makeArtRow(a){
-  const e=getEntry(a.no),s=deriveStatus(e,a);
-  const row=document.createElement('div'); row.className='list-item';
-  row.innerHTML=`<div class="list-dot ${s}"></div><div class="list-info"><div class="list-name">${a.name}</div><div class="list-sub">#${a.no} · wk:${a.wk}${e.qty!=null?' · qty:'+e.qty:''}</div></div><div class="list-right">${e.rack?`<span class="rack-tag">${e.rack}</span>`:''}<span class="arr">›</span></div>`;
-  row.onclick=()=>openInvSheet(a.no);
-  return row;
+function makeRow(a){
+  const e=getEntry(a.no), s=deriveStatus(a);
+  const row=document.createElement('div'); row.className='ar';
+  row.innerHTML='<div class="dot '+s+'"></div><div class="ai"><div class="an">'+a.name+'</div><div class="as">#'+a.no+' · wk:'+a.wk+(e.qty!=null?' · qty:'+e.qty:'')+(a.wkrev?' · €'+Math.round(a.wkrev)+'/wk':'')+'</div></div>'+(e.rack?'<span class="rtag">'+e.rack+'</span>':'')+'<span style="color:var(--line);font-size:14px;">›</span>';
+  row.onclick=()=>openSheet(a.no); return row;
 }
 
-// ─── INVENTORY BOTTOM SHEET ────────────────────────────────────────
-function populateRackSelect(selectId, val){
-  const sel=document.getElementById(selectId);
-  sel.innerHTML='<option value="">No rack</option>';
-  RACKS.forEach(r=>{ const o=document.createElement('option'); o.value=r.code; o.textContent=r.code+' — '+r.label; if(r.code===val)o.selected=true; sel.appendChild(o); });
-}
-function openInvSheet(no){
-  const a=ARTICLES.find(x=>x.no===no); if(!a)return;
-  const e=getEntry(no),s=deriveStatus(e,a);
-  sheetArticleNo=no;
-  document.getElementById('isTitle').textContent=a.name;
-  document.getElementById('isSub').textContent=`#${a.no} · ${a.grp}`;
-  document.getElementById('isWk').textContent=`wk: ${a.wk}`;
-  const sb2=document.getElementById('isStatusBar');
-  sb2.className='status-bar '+s;
-  document.getElementById('isStatusTxt').textContent=s==='filled'?'Fully stocked':s==='low'?'Low stock':s==='out'?'Out of stock':'Not checked';
-  populateRackSelect('isRack',e.rack||'');
-  document.getElementById('isQty').value=e.qty??'';
-  document.getElementById('isExpiry').value=e.expiry||'';
-  document.getElementById('invSheet').classList.add('open');
-  document.getElementById('invOverlay').classList.add('open');
-}
-function closeInvSheet(){ document.getElementById('invSheet').classList.remove('open'); document.getElementById('invOverlay').classList.remove('open'); sheetArticleNo=null; }
-
-document.getElementById('isRack').onchange=async()=>{ if(!sheetArticleNo)return; await saveEntry(sheetArticleNo,{rack:document.getElementById('isRack').value}); snack('Rack updated'); };
-document.getElementById('isQty').onchange=async()=>{
-  if(!sheetArticleNo)return;
-  const v=document.getElementById('isQty').value;
-  const qty=v===''?null:Number(v);
-  const a=ARTICLES.find(x=>x.no===sheetArticleNo);
-  const st=qty===null?'unchecked':qty<=0?'out':a&&qty<a.wk?'low':'filled';
-  await saveEntry(sheetArticleNo,{qty,status:st}); logAction(sheetArticleNo,'qty_update',qty);
-  const sb3=document.getElementById('isStatusBar'); sb3.className='status-bar '+st;
-  document.getElementById('isStatusTxt').textContent=st==='filled'?'Fully stocked':st==='low'?'Low stock':st==='out'?'Out of stock':'Not checked';
-  snack('Quantity saved');
-};
-document.getElementById('isExpiry').onchange=async()=>{ if(!sheetArticleNo)return; await saveEntry(sheetArticleNo,{expiry:document.getElementById('isExpiry').value||null}); snack('Expiry saved'); };
-
-async function invMark(status){
-  if(!sheetArticleNo)return;
-  const a=ARTICLES.find(x=>x.no===sheetArticleNo);
-  const rack=document.getElementById('isRack').value;
-  const expiry=document.getElementById('isExpiry').value||null;
-  const qty=status==='filled'?(Number(document.getElementById('isQty').value)||a?.wk||1):0;
-  await saveEntry(sheetArticleNo,{status,qty,rack,expiry});
-  logAction(sheetArticleNo,status==='filled'?'filled':'out_of_stock',qty);
-  snack(status==='filled'?'Marked as filled ✓':'Marked out of stock');
-  closeInvSheet(); renderPage(currentPage);
-}
-
-// ─── ADMIN PANEL ───────────────────────────────────────────────────
-function renderAdmin(el){
-
+// ─── QUICK CHECK PAGE ──────────────────────────────────────────────
+function renderCheck(el){
+  const allItems = ARTICLES.slice().sort((a,b)=>(b.wkrev||0)-(a.wkrev||0));
+  let rf='ALL', sq='';
   el.innerHTML=`
-    <div class="admin-tabs">
-      <button class="atab ${adminTab==='articles'?'active':''}" onclick="setAdminTab('articles')">Articles</button>
-
-      <button class="atab ${adminTab==='racks'?'active':''}" onclick="setAdminTab('racks')">Racks</button>
-      <button class="atab ${adminTab==='settings'?'active':''}" onclick="setAdminTab('settings')">Settings</button>
-      <button class="atab ${adminTab==='reports'?'active':''}" onclick="setAdminTab('reports')">Reports</button>
-    </div>
-    <div id="adminContent"></div>
-  `;
-  drawAdminTab(el.querySelector('#adminContent'));
-}
-function setAdminTab(tab){ adminTab=tab; renderPage('admin'); }
-
-function drawAdminTab(el){
-  if(adminTab==='articles') drawAdminArticles(el);
-
-  else if(adminTab==='racks') drawAdminRacks(el);
-  else if(adminTab==='settings') drawAdminSettings(el);
-  else if(adminTab==='reports') drawAdminReports(el);
-}
-
-// ARTICLES ADMIN
-function drawAdminArticles(el){
-  let q='';
-  el.innerHTML=`
-    <div class="search-row">
-      <input id="adminArtSrch" type="text" placeholder="Search articles…">
-      <button class="icon-btn" onclick="openArtSheet(null)" title="Add article"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-    </div>
-    <div id="adminArtList"></div>
-  `;
-  function draw(){
-    const list=el.querySelector('#adminArtList'); list.innerHTML='';
-    const hits=ARTICLES.filter(a=>!q||a.name.toLowerCase().includes(q)||a.no.includes(q)).slice(0,80);
-    if(!hits.length){list.innerHTML='<div class="empty">No articles match.</div>';return;}
-    hits.forEach(a=>{
-      const row=document.createElement('div'); row.className='list-item';
-      row.innerHTML=`<div class="list-info"><div class="list-name">${a.name}</div><div class="list-sub">#${a.no} · ${a.grp} · wk:${a.wk} · €${a.price}</div></div><span class="arr">›</span>`;
-      row.onclick=()=>openArtSheet(a.no); list.appendChild(row);
-    });
-    if(ARTICLES.filter(a=>!q||a.name.toLowerCase().includes(q)).length>80){ const n=document.createElement('div'); n.className='empty'; n.textContent='Showing 80 results — type to narrow down.'; list.appendChild(n); }
-  }
-  el.querySelector('#adminArtSrch').addEventListener('input',e=>{ q=e.target.value.toLowerCase(); draw(); });
-  draw();
-}
-
-function openArtSheet(no){
-  editArticleNo=no;
-  document.getElementById('asTitle').textContent=no?'Edit Article':'Add Article';
-  const a=no?ARTICLES.find(x=>x.no===no):null;
-  document.getElementById('asName').value=a?.name||'';
-  document.getElementById('asNo').value=a?.no||'';
-  document.getElementById('asGrp').value=a?.grp||'';
-  document.getElementById('asWk').value=a?.wk||'';
-  document.getElementById('asPrice').value=a?.price||'';
-  document.getElementById('asBarcode').value=a?.barcode||'';
-  document.getElementById('asDeleteBtn').style.display=no?'':'none';
-  document.getElementById('artSheet').classList.add('open');
-  document.getElementById('artOverlay').classList.add('open');
-}
-function closeArtSheet(){ document.getElementById('artSheet').classList.remove('open'); document.getElementById('artOverlay').classList.remove('open'); editArticleNo=null; }
-
-async function saveArticle(){
-  const name=document.getElementById('asName').value.trim();
-  const no=document.getElementById('asNo').value.trim();
-  if(!name||!no){snack('Name and article number required');return;}
-  const row={no,name,grp:document.getElementById('asGrp').value.trim(),weekly_sale:Number(document.getElementById('asWk').value)||0,normal_price:Number(document.getElementById('asPrice').value)||0,barcode:document.getElementById('asBarcode').value.trim()};
-  document.getElementById('asSaveBtn').disabled=true;
-  const {error}=editArticleNo
-    ? await sb.from('articles').update(row).eq('no',no)
-    : await sb.from('articles').insert(row);
-  document.getElementById('asSaveBtn').disabled=false;
-  if(error){snack('Error: '+error.message);return;}
-  snack(editArticleNo?'Article updated':'Article added ✓');
-  closeArtSheet();
-  await loadAll(); renderPage(currentPage);
-}
-
-async function deleteArticle(){
-  if(!editArticleNo)return;
-  if(!confirm('Delete this article? This cannot be undone.'))return;
-  const {error}=await sb.from('articles').delete().eq('no',editArticleNo);
-  if(error){snack('Delete failed: '+error.message);return;}
-  snack('Article deleted');
-  closeArtSheet();
-  await loadAll(); renderPage(currentPage);
-}
-
-
-
-// RACKS ADMIN
-function drawAdminRacks(el){
-  el.innerHTML=`
-    <button class="fp active" style="margin-bottom:10px;" onclick="openRackSheet(null)">+ Add rack</button>
-    <div id="rackAdminList"></div>
-  `;
-  const list=el.querySelector('#rackAdminList');
-  if(!RACKS.length){list.innerHTML='<div class="empty">No racks yet.</div>';return;}
-  RACKS.forEach(r=>{
-    const items=rackArticles(r.code);
-    const row=document.createElement('div'); row.className='list-item';
-    row.innerHTML=`<div class="list-info"><div class="list-name"><b>${r.code}</b> — ${r.label}</div><div class="list-sub">${items.length} articles assigned · order: ${r.sort_order}</div></div><span class="arr">›</span>`;
-    row.onclick=()=>openRackSheet(r.id); list.appendChild(row);
-  });
-}
-
-function openRackSheet(id){
-  editRackId=id;
-  const r=id?RACKS.find(x=>x.id===id):null;
-  document.getElementById('rsTitle').textContent=id?'Edit Rack':'Add Rack';
-  document.getElementById('rsCode').value=r?.code||'';
-  document.getElementById('rsLabel').value=r?.label||'';
-  document.getElementById('rsOrder').value=r?.sort_order||RACKS.length+1;
-  document.getElementById('rsDeleteBtn').style.display=id?'':'none';
-  document.getElementById('rackSheet').classList.add('open');
-  document.getElementById('rackOverlay').classList.add('open');
-}
-function closeRackSheet(){ document.getElementById('rackSheet').classList.remove('open'); document.getElementById('rackOverlay').classList.remove('open'); editRackId=null; }
-
-async function saveRack(){
-  const code=document.getElementById('rsCode').value.trim().toUpperCase();
-  const label=document.getElementById('rsLabel').value.trim();
-  if(!code||!label){snack('Code and label required');return;}
-  const row={code,label,sort_order:Number(document.getElementById('rsOrder').value)||0};
-  const {error}=editRackId
-    ? await sb.from('racks').update(row).eq('id',editRackId)
-    : await sb.from('racks').insert(row);
-  if(error){snack('Error: '+error.message);return;}
-  snack(editRackId?'Rack updated':'Rack added ✓');
-  closeRackSheet();
-  await loadAll(); renderPage(currentPage);
-}
-
-async function deleteRack(){
-  if(!editRackId)return;
-  const r=RACKS.find(x=>x.id===editRackId);
-  if(rackArticles(r?.code||'').length>0&&!confirm('This rack has articles assigned. Delete anyway?'))return;
-  const {error}=await sb.from('racks').delete().eq('id',editRackId);
-  if(error){snack('Delete failed: '+error.message);return;}
-  snack('Rack deleted');
-  closeRackSheet();
-  await loadAll(); renderPage(currentPage);
-}
-
-// SETTINGS ADMIN
-function drawAdminSettings(el){
-  el.innerHTML=`
-    <div class="field"><label>Store Name</label><input id="setStoreName" type="text" value="${SETTINGS.store_name||''}"></div>
-    <div class="field"><label>Store Address</label><input id="setAddress" type="text" value="${SETTINGS.store_address||''}"></div>
-    <div class="field"><label>Report Email (default recipient)</label><input id="setEmail" type="email" value="${SETTINGS.report_email||''}"></div>
-    <div class="field"><label>Low stock threshold (fraction of weekly — e.g. 0.8)</label><input id="setThreshold" type="number" step="0.1" min="0" max="1" value="${SETTINGS.low_stock_threshold||'0.8'}"></div>
-    <button class="btn primary" style="width:100%;margin-top:4px;" onclick="saveSettings()">Save Settings</button>
-  `;
-}
-
-async function saveSettings(){
-  const updates=[
-    {key:'store_name',value:document.getElementById('setStoreName').value},
-    {key:'store_address',value:document.getElementById('setAddress').value},
-    {key:'report_email',value:document.getElementById('setEmail').value},
-    {key:'low_stock_threshold',value:document.getElementById('setThreshold').value},
-  ];
-  for(const u of updates){ await sb.from('app_settings').upsert(u,{onConflict:'key'}); SETTINGS[u.key]=u.value; }
-  updateHeader(); snack('Settings saved ✓');
-}
-
-// REPORTS ADMIN
-function drawAdminReports(el){
-  let filled=0,low=0,out=0,unc=0;
-  ARTICLES.forEach(a=>{ const s=deriveStatus(getEntry(a.no),a); if(s==='filled')filled++;else if(s==='low')low++;else if(s==='out')out++;else unc++; });
-  const total=ARTICLES.length, today=todayStr(), tlog=LOG.filter(l=>(l.created_at||'').slice(0,10)===today);
-  el.innerHTML=`
-    <div class="sec">Summary</div>
-    <table><tr><th>Metric</th><th>Count</th></tr>
-      <tr><td>Total articles</td><td>${total}</td></tr>
-      <tr><td>Fully stocked</td><td style="color:var(--green);font-weight:700;">${filled} (${total?Math.round(filled/total*100):0}%)</td></tr>
-      <tr><td>Low stock</td><td style="color:var(--yellow);font-weight:700;">${low}</td></tr>
-      <tr><td>Out of stock</td><td style="color:var(--red);font-weight:700;">${out}</td></tr>
-      <tr><td>Unchecked</td><td>${unc}</td></tr>
-    </table>
-    <div class="sec">By rack</div>
-    <table><tr><th>Rack</th><th>Articles</th><th>Fill %</th></tr>
-      ${RACKS.map(r=>{ const p=rackFillPct(r.code); return `<tr><td><b>${r.code}</b> ${r.label}</td><td>${rackArticles(r.code).length}</td><td>${p===null?'—':p+'%'}</td></tr>`; }).join('')}
-    </table>
-    <div class="sec">Today's log (${tlog.length} updates)</div>
-    <div style="max-height:250px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);">
-      <table><tr><th>Time</th><th>Staff</th><th>Article</th><th>Action</th></tr>
-        ${tlog.slice(0,80).map(l=>{ const a=ARTICLES.find(x=>x.no===l.article_no); return `<tr><td>${(l.created_at||'').slice(11,16)}</td><td>${l.staff_name}</td><td>${a?a.name:l.article_no}</td><td>${l.action}</td></tr>`; }).join('')}
-      </table>
-    </div>
-    <div class="sec">Export</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <button onclick="exportRefill()" class="btn gray">Refill list CSV</button>
-      <button onclick="exportFull()" class="btn gray">Full inventory CSV</button>
-    </div>
-    <button onclick="exportRackAssignment()" style="width:100%;margin-top:8px;padding:13px;border:none;border-radius:var(--r);background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;letter-spacing:.04em;">📋 Download Rack Assignment Report</button>
-    <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:5px;padding:0 2px;">Every article grouped by rack S1 / S2 / G1 / G2 with status and quantity. Open in Excel.</div>
-  `;
-}
-
-
-
-
-// ─── WEEKLY CHECK ──────────────────────────────────────────────────
-let weeklySession = null;       // current session object
-let weeklyItems = {};           // article_no -> {fill_status, ...}
-let weeklyLoaded = false;
-let weeklyRackFilter = 'ALL';
-let weeklyStatusFilter = 'all';
-let weeklySearchQ = '';
-
-function getWeekStart(d = new Date()){
-  const day = d.getDay(), diff = d.getDate() - day + (day===0?-6:1);
-  const mon = new Date(d); mon.setDate(diff); mon.setHours(0,0,0,0);
-  return mon;
-}
-function weekLabel(d){ const w = getWeekNumber(d); return 'W' + w + ' ' + d.getFullYear(); }
-function getWeekNumber(d){
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay()||7));
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
-  return Math.ceil((((date - yearStart) / 86400000) + 1)/7);
-}
-function fmtDate(d){ return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }
-
-async function loadWeeklySession(){
-  const weekStart = getWeekStart().toISOString().slice(0,10);
-  // Check if session exists for this week
-  const {data:sessions} = await sb.from('weekly_check_sessions').select('*').eq('week_start', weekStart).limit(1);
-  if(sessions && sessions.length > 0){
-    weeklySession = sessions[0];
-    // Load items for this session
-    const {data:items} = await sb.from('weekly_check_items').select('*').eq('session_id', weeklySession.id);
-    weeklyItems = {};
-    (items||[]).forEach(i => weeklyItems[i.article_no] = i);
-  } else {
-    weeklySession = null;
-    weeklyItems = {};
-  }
-  weeklyLoaded = true;
-}
-
-async function startWeeklyCheck(){
-  const weekStart = getWeekStart();
-  const weekStartStr = weekStart.toISOString().slice(0,10);
-  const label = weekLabel(weekStart);
-
-  // Create session
-  const {data, error} = await sb.from('weekly_check_sessions').insert({
-    week_start: weekStartStr,
-    week_label: label,
-    checked_by: CURRENT_PROFILE?.name || 'unknown',
-    total_articles: ARTICLES.length,
-    unchecked_count: ARTICLES.length
-  }).select().single();
-  if(error){ snack('Error: ' + error.message); return; }
-
-  weeklySession = data;
-  weeklyItems = {};
-
-  // Pre-create all items for this session
-  const batch = ARTICLES.map(a => ({
-    session_id: weeklySession.id,
-    week_start: weekStartStr,
-    article_no: a.no,
-    article_name: a.name,
-    rack: getEntry(a.no).rack || '',
-    grp: a.grp,
-    weekly_sale: a.wk,
-    price: a.price || 0,
-    fill_status: 'unchecked',
-    revenue_at_risk: a.wk * (a.price || 0)
-  }));
-
-  // Insert in batches of 500
-  for(let i=0; i<batch.length; i+=500){
-    await sb.from('weekly_check_items').insert(batch.slice(i, i+500));
-  }
-
-  // Reload items
-  const {data:items} = await sb.from('weekly_check_items').select('*').eq('session_id', weeklySession.id);
-  weeklyItems = {};
-  (items||[]).forEach(it => weeklyItems[it.article_no] = it);
-
-  renderPage('weekly');
-}
-
-async function markWeeklyItem(articleNo, status){
-  if(!weeklySession) return;
-  const a = ARTICLES.find(x=>x.no===articleNo);
-  if(!a) return;
-
-  const risk = status==='yes' ? 0 : status==='half' ? (a.wk * (a.price||0) * 0.5) : (a.wk * (a.price||0));
-
-  // Update in DB
-  const {error} = await sb.from('weekly_check_items')
-    .update({ fill_status: status, checked_by: CURRENT_PROFILE?.name||'unknown', checked_at: new Date().toISOString(), revenue_at_risk: risk })
-    .eq('session_id', weeklySession.id)
-    .eq('article_no', articleNo);
-
-  if(!error){
-    if(!weeklyItems[articleNo]) weeklyItems[articleNo] = {};
-    weeklyItems[articleNo].fill_status = status;
-    weeklyItems[articleNo].revenue_at_risk = risk;
-    updateSessionStats();
-  }
-}
-
-async function updateSessionStats(){
-  const vals = Object.values(weeklyItems);
-  const filled = vals.filter(i=>i.fill_status==='yes').length;
-  const half = vals.filter(i=>i.fill_status==='half').length;
-  const empty = vals.filter(i=>i.fill_status==='no').length;
-  const unc = vals.filter(i=>i.fill_status==='unchecked').length;
-  const total = ARTICLES.length;
-  const fillPct = total ? ((filled + half*0.5) / total * 100) : 0;
-  const risk = vals.reduce((s,i)=>s+(i.revenue_at_risk||0),0);
-
-  await sb.from('weekly_check_sessions').update({
-    filled_count: filled, half_count: half, empty_count: empty,
-    unchecked_count: unc, fill_pct: fillPct, revenue_at_risk: risk,
-    completed: unc === 0, completed_at: unc===0 ? new Date().toISOString() : null
-  }).eq('id', weeklySession.id);
-
-  if(weeklySession){ weeklySession.filled_count=filled; weeklySession.half_count=half; weeklySession.empty_count=empty; weeklySession.unchecked_count=unc; weeklySession.fill_pct=fillPct; weeklySession.revenue_at_risk=risk; }
-}
-
-async function renderWeekly(el){
-  if(!weeklyLoaded){ el.innerHTML='<div class="loading">Loading weekly check…</div>'; await loadWeeklySession(); }
-
-  const weekStart = getWeekStart();
-  const label = weekLabel(weekStart);
-
-  if(!weeklySession){
-    // Show start screen + history
-    el.innerHTML = `
-      <div style="background:var(--ink);color:var(--paper);border-radius:var(--r);padding:20px;margin-bottom:16px;text-align:center;">
-        <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;color:#aaa;margin-bottom:6px;">This week · ${label}</div>
-        <div style="font-size:22px;font-weight:800;margin-bottom:4px;">Weekly Rack Fill Audit</div>
-        <div style="font-family:var(--mono);font-size:11px;color:#ccc;margin-bottom:18px;">Check every article — Yes / Half / No — to track fill efficiency and sales risk</div>
-        <button onclick="startWeeklyCheck()" style="font-family:var(--mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:14px 28px;border:none;border-radius:6px;background:var(--paper);color:var(--ink);cursor:pointer;">▶ Start This Week's Check</button>
-      </div>
-      <div class="sec">Previous weeks</div>
-      <div id="weekHistory"></div>
-    `;
-    await loadWeekHistory(el.querySelector('#weekHistory'));
-    return;
-  }
-
-  // Active session
-  const total = ARTICLES.length;
-  const filled = weeklySession.filled_count||0;
-  const half = weeklySession.half_count||0;
-  const empty = weeklySession.empty_count||0;
-  const unc = weeklySession.unchecked_count ?? (total - filled - half - empty);
-  const pct = weeklySession.fill_pct||0;
-  const risk = weeklySession.revenue_at_risk||0;
-  const done = total - unc;
-
-  el.innerHTML = `
     <div style="background:var(--ink);color:var(--paper);border-radius:var(--r);padding:14px;margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div>
-          <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;color:#aaa;">${label} · ${fmtDate(weekStart)}</div>
-          <div style="font-size:16px;font-weight:700;">Weekly Rack Audit</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:22px;font-weight:900;">${Math.round(pct)}%</div>
-          <div style="font-family:var(--mono);font-size:9px;color:#aaa;">FILL RATE</div>
-        </div>
+      <div style="font-family:var(--display);font-size:16px;font-weight:700;margin-bottom:6px;">Quick Check — Yes / Half / No</div>
+      <div style="display:flex;gap:6px;font-family:var(--mono);font-size:10px;color:#aaa;">
+        <span id="ckDone" style="color:var(--paper);">0 done</span> · <span>sorted by weekly revenue</span>
       </div>
-      <div style="height:8px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden;margin-bottom:10px;">
-        <div style="height:100%;width:${pct}%;background:${pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)'};border-radius:4px;"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;">
-        <div><div style="font-size:16px;font-weight:800;color:#4caf78;">${filled}</div><div style="font-family:var(--mono);font-size:9px;color:#aaa;">YES</div></div>
-        <div><div style="font-size:16px;font-weight:800;color:#f0b429;">${half}</div><div style="font-family:var(--mono);font-size:9px;color:#aaa;">HALF</div></div>
-        <div><div style="font-size:16px;font-weight:800;color:#e05c3a;">${empty}</div><div style="font-family:var(--mono);font-size:9px;color:#aaa;">NO</div></div>
-        <div><div style="font-size:16px;font-weight:800;color:#aaa;">${unc}</div><div style="font-family:var(--mono);font-size:9px;color:#aaa;">TODO</div></div>
-      </div>
-      ${risk>0?`<div style="margin-top:8px;padding:6px 10px;background:rgba(224,92,58,.25);border-radius:4px;font-family:var(--mono);font-size:11px;color:#ffb3a0;text-align:center;">⚠ Revenue at risk: €${Math.round(risk).toLocaleString()} this week</div>`:''}
     </div>
-
-    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-      <select id="wkRackFilter" style="font-family:var(--mono);font-size:11px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;flex:1;">
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+      <select id="ckRack" style="font-family:var(--mono);font-size:11px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);flex:1;">
         <option value="ALL">All racks</option>
-        ${RACKS.map(r=>`<option value="${r.code}" ${weeklyRackFilter===r.code?'selected':''}>${r.code} — ${r.label}</option>`).join('')}
-        <option value="NORACK">No rack assigned</option>
+        ${RACKS.map(r=>'<option value="'+r.code+'">'+r.code+' — '+r.label+'</option>').join('')}
+        <option value="NORACK">No rack</option>
       </select>
-      <select id="wkStatusFilter" style="font-family:var(--mono);font-size:11px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;flex:1;">
-        <option value="all">All articles</option>
+      <select id="ckStatus" style="font-family:var(--mono);font-size:11px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);flex:1;">
         <option value="unchecked">Todo only</option>
-        <option value="yes">Marked Yes</option>
-        <option value="half">Marked Half</option>
+        <option value="all">All articles</option>
         <option value="no">Marked No</option>
+        <option value="half">Marked Half</option>
       </select>
     </div>
-    <div class="search-row" style="margin-bottom:8px;">
-      <input id="wkSearch" type="text" placeholder="Search article…">
-    </div>
-
-    <div id="weeklyList"></div>
-
-    ${unc===0 ? `
-    <div style="background:var(--gs);border:1px solid var(--green);border-radius:var(--r);padding:14px;margin-top:10px;text-align:center;">
-      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:4px;">✓ All articles checked!</div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--gray);margin-bottom:12px;">Fill rate: ${Math.round(pct)}% · Revenue at risk: €${Math.round(risk).toLocaleString()}</div>
-      <button onclick="exportWeeklyReport()" style="font-family:var(--mono);font-size:12px;font-weight:700;padding:12px 20px;border:none;border-radius:6px;background:var(--ink);color:var(--paper);cursor:pointer;">📋 Download Weekly Report</button>
-    </div>` : `
-    <div style="text-align:center;margin-top:10px;">
-      <button onclick="exportWeeklyReport()" style="font-family:var(--mono);font-size:11px;padding:10px 16px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;">📋 Export partial report (${done}/${total} done)</button>
-    </div>`}
+    <div class="sbar"><input id="ckSearch" type="text" placeholder="Search…"></div>
+    <div id="ckList"></div>
   `;
 
-  function drawWeeklyList(){
-    const list = el.querySelector('#weeklyList');
-    if(!list) return;
-    list.innerHTML = '';
-    const rf = el.querySelector('#wkRackFilter')?.value || 'ALL';
-    const sf = el.querySelector('#wkStatusFilter')?.value || 'all';
-    const sq = el.querySelector('#wkSearch')?.value?.toLowerCase() || '';
+  function updateDone(){
+    const yes=ARTICLES.filter(a=>getEntry(a.no).ck==='yes').length;
+    const half=ARTICLES.filter(a=>getEntry(a.no).ck==='half').length;
+    const no=ARTICLES.filter(a=>getEntry(a.no).ck==='no').length;
+    const el2=document.getElementById('ckDone');
+    if(el2) el2.textContent=`✓${yes} ½${half} ✗${no} done`;
+  }
 
-    // Sort: unchecked first, then by revenue (weekly_sale * price) desc
-    let filtered = [...ARTICLES].sort((a,b)=>{
-      const sa = weeklyItems[a.no]?.fill_status||'unchecked';
-      const sb2 = weeklyItems[b.no]?.fill_status||'unchecked';
-      if(sa==='unchecked'&&sb2!=='unchecked') return -1;
-      if(sa!=='unchecked'&&sb2==='unchecked') return 1;
-      return (b.wk*(b.price||0)) - (a.wk*(a.price||0));
-    });
-
-    filtered = filtered.filter(a=>{
-      const e = getEntry(a.no);
-      const rack = e.rack||'';
-      if(rf==='ALL') {}
-      else if(rf==='NORACK' && rack) return false;
-      else if(rf!=='NORACK' && rack!==rf) return false;
-      const st = weeklyItems[a.no]?.fill_status||'unchecked';
-      if(sf!=='all'&&st!==sf) return false;
-      if(sq&&!a.name.toLowerCase().includes(sq)&&!a.no.includes(sq)) return false;
+  function drawCk(){
+    const list=el.querySelector('#ckList'); list.innerHTML='';
+    const rack=el.querySelector('#ckRack')?.value||'ALL';
+    const st=el.querySelector('#ckStatus')?.value||'unchecked';
+    const q=el.querySelector('#ckSearch')?.value?.toLowerCase()||'';
+    const filtered=allItems.filter(a=>{
+      const e=getEntry(a.no), ck=e.ck||'unchecked';
+      if(rack==='ALL'){}
+      else if(rack==='NORACK'&&e.rack)return false;
+      else if(rack!=='NORACK'&&e.rack!==rack)return false;
+      if(st==='unchecked'&&ck!=='unchecked')return false;
+      if(st==='no'&&ck!=='no')return false;
+      if(st==='half'&&ck!=='half')return false;
+      if(q&&!a.name.toLowerCase().includes(q)&&!a.no.includes(q))return false;
       return true;
     });
-
-    if(!filtered.length){ list.innerHTML='<div class="empty">No articles match.</div>'; return; }
-
-    filtered.forEach(a=>{
-      const e = getEntry(a.no);
-      const st = weeklyItems[a.no]?.fill_status||'unchecked';
-      const rev = (a.wk*(a.price||0)).toFixed(0);
-      const bgMap = {yes:'var(--gs)',half:'var(--ys)',no:'var(--rs)',unchecked:'#fff'};
-      const borderMap = {yes:'var(--green)',half:'var(--yellow)',no:'var(--red)',unchecked:'var(--line)'};
-
-      const row = document.createElement('div');
-      row.className = 'week-card';
-      row.style.cssText = `border-color:${borderMap[st]};`;
-      row.innerHTML = `
-        <div class="week-card-head" style="background:${bgMap[st]};">
+    if(!filtered.length){list.innerHTML='<div class="empty">No articles match.</div>';return;}
+    filtered.slice(0,100).forEach(a=>{
+      const e=getEntry(a.no), ck=e.ck||'unchecked';
+      const bgMap={yes:'var(--gs)',half:'var(--ys)',no:'var(--rs)',unchecked:'var(--paper)'};
+      const bdMap={yes:'var(--green)',half:'var(--yellow)',no:'var(--red)',unchecked:'var(--line)'};
+      const card=document.createElement('div');
+      card.style.cssText='background:'+bgMap[ck]+';border:1px solid '+bdMap[ck]+';border-radius:8px;margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow);';
+      card.innerHTML=`
+        <div style="display:flex;align-items:center;padding:10px 12px;gap:10px;cursor:pointer;" onclick="openSheet('${a.no}')">
+          <div class="dot ${deriveStatus(a)}"></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;">${e.rack||'no rack'} · ${a.grp} · €${rev}/wk</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;">${e.rack||'no rack'} · ${a.grp} · <span class="wkrev">€${Math.round(a.wkrev||0)}/wk</span></div>
           </div>
-          <div style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:10px;background:${borderMap[st]};color:${st==='unchecked'?'var(--gray)':'#fff'};margin-left:8px;text-transform:uppercase;flex-shrink:0;">${st==='unchecked'?'todo':st}</div>
+          <span style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:10px;background:${bdMap[ck]};color:${ck==='unchecked'?'var(--gray)':'#fff'};text-transform:uppercase;">${ck==='unchecked'?'todo':ck}</span>
         </div>
-        <div style="display:flex;gap:6px;padding:8px 10px;background:#fff;">
-          <button class="fill-btn ${st==='yes'?'yes':'yes-sel'}" onclick="markWeeklyItem('${a.no}','yes').then(()=>drawWeeklyList())">✓ Yes</button>
-          <button class="fill-btn ${st==='half'?'half':'half-sel'}" onclick="markWeeklyItem('${a.no}','half').then(()=>drawWeeklyList())">⚡ Half</button>
-          <button class="fill-btn ${st==='no'?'no':'no-sel'}" onclick="markWeeklyItem('${a.no}','no').then(()=>drawWeeklyList())">✗ No</button>
-        </div>
-      `;
-      list.appendChild(row);
-    });
-  }
-
-  el.querySelector('#wkRackFilter')?.addEventListener('change', drawWeeklyList);
-  el.querySelector('#wkStatusFilter')?.addEventListener('change', drawWeeklyList);
-  el.querySelector('#wkSearch')?.addEventListener('input', drawWeeklyList);
-  drawWeeklyList();
-}
-
-async function loadWeekHistory(container){
-  const {data} = await sb.from('weekly_efficiency_trend').select('*');
-  if(!data||!data.length){ container.innerHTML='<div class="empty">No previous checks yet.</div>'; return; }
-  data.forEach(s=>{
-    const div=document.createElement('div');
-    div.className='week-card';
-    const pct=Math.round(s.fill_pct||0);
-    const color=pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
-    div.innerHTML=`
-      <div class="week-card-head" style="cursor:default;">
-        <div>
-          <div style="font-size:14px;font-weight:700;">${s.week_label}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--gray);">${fmtDate(s.week_start)} · ${s.checked_by||'?'} · ${s.completed?'✓ Complete':'In progress'}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:20px;font-weight:800;color:${color};">${pct}%</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--gray);">fill rate</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px 10px;background:var(--gray-soft);">
-        <div style="text-align:center;"><div style="font-weight:700;color:var(--green);">${s.filled_count||0}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">YES</div></div>
-        <div style="text-align:center;"><div style="font-weight:700;color:var(--yellow);">${s.half_count||0}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">HALF</div></div>
-        <div style="text-align:center;"><div style="font-weight:700;color:var(--red);">${s.empty_count||0}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">NO</div></div>
-        <div style="text-align:center;"><div style="font-weight:700;color:var(--red);">€${Math.round(s.revenue_at_risk||0).toLocaleString()}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">AT RISK</div></div>
-      </div>
-      <div style="padding:8px 10px;display:flex;justify-content:flex-end;">
-        <button onclick="exportWeeklyReportById(${s.id},'${s.week_label}')" style="font-family:var(--mono);font-size:10px;padding:6px 10px;border:1px solid var(--line);border-radius:4px;background:#fff;cursor:pointer;">📋 Download Report</button>
-      </div>
-    `;
-    container.appendChild(div);
-  });
-}
-
-async function exportWeeklyReport(){
-  if(!weeklySession) return;
-  await exportWeeklyReportById(weeklySession.id, weeklySession.week_label);
-}
-
-async function exportWeeklyReportById(sessionId, label){
-  const {data:items} = await sb.from('weekly_check_items').select('*').eq('session_id', sessionId).order('fill_status').order('revenue_at_risk', {ascending:false});
-  if(!items){ snack('No data found'); return; }
-
-  const {data:session} = await sb.from('weekly_check_sessions').select('*').eq('id', sessionId).single();
-
-  const rows = [
-    [`Weekly Rack Fill Report — ${label}`,'','','','','','',''],
-    [`Generated: ${new Date().toLocaleString('de-DE')}`,'','','','','','',''],
-    [`Fill Rate: ${Math.round(session?.fill_pct||0)}%  |  Revenue at risk: €${Math.round(session?.revenue_at_risk||0).toLocaleString()}  |  Checked by: ${session?.checked_by||'?'}`,'','','','','','',''],
-    [''],
-    ['Status','Article No','Article Name','Category','Rack','Weekly Sale','Price (€)','Revenue at Risk (€)','Checked By','Checked At']
-  ];
-
-  // Group by status: No first (most critical), Half, Yes, Unchecked
-  ['no','half','yes','unchecked'].forEach(st=>{
-    const grp = items.filter(i=>i.fill_status===st);
-    if(!grp.length) return;
-    const label2 = st==='yes'?'✓ FILLED':st==='half'?'⚡ HALF FILLED':st==='no'?'✗ EMPTY / NOT STOCKED':'— NOT CHECKED';
-    rows.push([`=== ${label2} (${grp.length} articles) ===`,'','','','','','','','','']);
-    grp.sort((a,b)=>(b.revenue_at_risk||0)-(a.revenue_at_risk||0)).forEach(i=>{
-      rows.push([
-        st.toUpperCase(), i.article_no, i.article_name, i.grp||'', i.rack||'',
-        i.weekly_sale||0, i.price||0,
-        (i.revenue_at_risk||0).toFixed(2),
-        i.checked_by||'', i.checked_at ? new Date(i.checked_at).toLocaleString('de-DE') : ''
-      ]);
-    });
-    rows.push(['']);
-  });
-
-  dlCsv(rows, `weekly-report-${label.replace(' ','-')}.csv`);
-  snack('Weekly report downloaded ✓');
-}
-
-
-// ─── RACK CHECK PAGE ───────────────────────────────────────────────
-let rcRack = null; // null = show rack selector
-let rcFilter = 'all';
-let rcQuery = '';
-
-function renderRackCheck(el){
-  if(rcRack){ renderRackCheckList(el, rcRack); return; }
-
-  // Compute overall stats per rack
-  el.innerHTML = `
-    <div class="sec">Select a rack to start checking</div>
-    <div id="rcRackGrid"></div>
-    <div class="sec">Overall progress today</div>
-    <div id="rcProgress"></div>
-  `;
-
-  const grid = el.querySelector('#rcRackGrid');
-  RACKS.forEach(r => {
-    const items = rackArticles(r.code);
-    const total = items.length;
-    const filled = items.filter(a => deriveStatus(getEntry(a.no),a) === 'filled').length;
-    const low = items.filter(a => deriveStatus(getEntry(a.no),a) === 'low').length;
-    const out = items.filter(a => deriveStatus(getEntry(a.no),a) === 'out').length;
-    const unchecked = items.filter(a => deriveStatus(getEntry(a.no),a) === 'unchecked').length;
-    const pct = total ? Math.round(filled/total*100) : 0;
-    const color = pct >= 80 ? 'green' : pct >= 40 ? 'yellow' : total > 0 ? 'red' : '';
-
-    const tile = document.createElement('div');
-    tile.style.cssText = 'background:#fff;border:2px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer;';
-    if(color === 'green') tile.style.cssText += 'border-color:var(--green);background:var(--gs);';
-    if(color === 'yellow') tile.style.cssText += 'border-color:var(--yellow);background:var(--ys);';
-    if(color === 'red') tile.style.cssText += 'border-color:var(--red);background:var(--rs);';
-
-    tile.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div>
-          <span style="font-size:22px;font-weight:900;">${r.code}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:var(--gray);margin-left:8px;">${r.label}</span>
-        </div>
-        <span style="font-size:20px;font-weight:800;color:${color==='green'?'var(--green)':color==='yellow'?'var(--yellow)':color==='red'?'var(--red)':'var(--gray)'};">${pct}%</span>
-      </div>
-      <div style="height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:10px;">
-        <div style="height:100%;width:${pct}%;background:${color==='green'?'var(--green)':color==='yellow'?'var(--yellow)':color==='red'?'var(--red)':'var(--gray)'};border-radius:4px;"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center;">
-        <div style="background:var(--gs);border-radius:4px;padding:4px;"><div style="font-weight:700;font-size:14px;color:var(--green);">${filled}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">FILLED</div></div>
-        <div style="background:var(--ys);border-radius:4px;padding:4px;"><div style="font-weight:700;font-size:14px;color:var(--yellow);">${low}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">LOW</div></div>
-        <div style="background:var(--rs);border-radius:4px;padding:4px;"><div style="font-weight:700;font-size:14px;color:var(--red);">${out}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">OUT</div></div>
-        <div style="background:var(--gray-soft);border-radius:4px;padding:4px;"><div style="font-weight:700;font-size:14px;color:var(--gray);">${unchecked}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">TODO</div></div>
-      </div>
-      <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--gray);text-align:center;">${total} articles total · tap to open checklist →</div>
-    `;
-    tile.onclick = () => { rcRack = r.code; renderPage('rackcheck'); };
-    grid.appendChild(tile);
-  });
-
-  // Overall progress
-  const prog = el.querySelector('#rcProgress');
-  const allTotal = ARTICLES.length;
-  let allFilled=0, allLow=0, allOut=0, allUnc=0;
-  ARTICLES.forEach(a => {
-    const s = deriveStatus(getEntry(a.no),a);
-    if(s==='filled')allFilled++;else if(s==='low')allLow++;else if(s==='out')allOut++;else allUnc++;
-  });
-  const allPct = allTotal ? Math.round((allFilled+allLow+allOut)/allTotal*100) : 0;
-  prog.innerHTML = `
-    <div style="background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-family:var(--mono);font-size:11px;">Overall checklist</span>
-        <span style="font-family:var(--mono);font-size:11px;font-weight:700;">${allPct}% checked</span>
-      </div>
-      <div style="height:10px;background:var(--line);border-radius:5px;overflow:hidden;">
-        <div style="height:100%;width:${allPct}%;background:var(--green);border-radius:5px;"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:10px;text-align:center;">
-        <div><div style="font-weight:700;color:var(--green);">${allFilled}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">FILLED</div></div>
-        <div><div style="font-weight:700;color:var(--yellow);">${allLow}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">LOW</div></div>
-        <div><div style="font-weight:700;color:var(--red);">${allOut}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">OUT</div></div>
-        <div><div style="font-weight:700;color:var(--gray);">${allUnc}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">UNCHECKED</div></div>
-      </div>
-    </div>
-    <button onclick="exportRefill()" style="width:100%;margin-top:8px;font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:#fff;cursor:pointer;">⬇ Refill list CSV</button>
-    <button onclick="exportRackAssignment()" style="width:100%;margin-top:6px;font-family:var(--mono);font-size:11px;padding:11px;border:none;border-radius:var(--r);background:var(--ink);color:var(--paper);cursor:pointer;font-weight:700;">📋 Rack Assignment Report</button>
-  `;
-}
-
-function renderRackCheckList(el, rackCode){
-  const rack = RACKS.find(r=>r.code===rackCode) || {code:rackCode, label:rackCode};
-  let items = rackArticles(rackCode);
-  const total = items.length;
-  const filled = items.filter(a=>deriveStatus(getEntry(a.no),a)==='filled').length;
-  const pct = total ? Math.round(filled/total*100) : 0;
-
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-      <button class="back-btn" onclick="rcRack=null;renderPage('rackcheck')">← Racks</button>
-      <div style="flex:1;">
-        <div style="font-size:18px;font-weight:900;">${rack.code} <span style="font-size:13px;font-weight:400;color:var(--gray);">${rack.label}</span></div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--gray);">${filled}/${total} filled · ${pct}%</div>
-      </div>
-    </div>
-    <div style="height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:10px;">
-      <div style="height:100%;width:${pct}%;background:${pct>=80?'var(--green)':pct>=40?'var(--yellow)':'var(--red)'};border-radius:4px;transition:width .3s;"></div>
-    </div>
-    <div class="filters" id="rcFilters">
-      <button class="fp active" data-f="all">All (${total})</button>
-      <button class="fp" data-f="unchecked">Todo (${items.filter(a=>deriveStatus(getEntry(a.no),a)==='unchecked').length})</button>
-      <button class="fp" data-f="filled">Filled (${filled})</button>
-      <button class="fp" data-f="low">Low (${items.filter(a=>deriveStatus(getEntry(a.no),a)==='low').length})</button>
-      <button class="fp" data-f="out">Out (${items.filter(a=>deriveStatus(getEntry(a.no),a)==='out').length})</button>
-    </div>
-    <div class="search-row">
-      <input id="rcSearch" type="text" placeholder="Search in ${rack.code}…">
-    </div>
-    <div id="rcList"></div>
-  `;
-
-  let rf = 'all', rq = '';
-
-  function drawList(){
-    const list = el.querySelector('#rcList');
-    list.innerHTML = '';
-    const filtered = items.filter(a => {
-      const s = deriveStatus(getEntry(a.no),a);
-      if(rf !== 'all' && s !== rf) return false;
-      if(rq && !a.name.toLowerCase().includes(rq) && !a.no.includes(rq)) return false;
-      return true;
-    });
-    if(!filtered.length){ list.innerHTML='<div class="empty">No articles match.</div>'; return; }
-
-    filtered.forEach(a => {
-      const e = getEntry(a.no);
-      const s = deriveStatus(e, a);
-      const colors = {filled:'var(--green)',low:'var(--yellow)',out:'var(--red)',unchecked:'var(--line)'};
-      const bgColors = {filled:'var(--gs)',low:'var(--ys)',out:'var(--rs)',unchecked:'#fff'};
-
-      const row = document.createElement('div');
-      row.style.cssText = `background:${bgColors[s]};border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;`;
-      if(s==='filled') row.style.borderColor='var(--green)';
-      if(s==='low') row.style.borderColor='var(--yellow)';
-      if(s==='out') row.style.borderColor='var(--red)';
-
-      row.innerHTML = `
-        <div style="width:28px;height:28px;border-radius:50%;border:2px solid ${colors[s]};background:${s==='filled'?colors[s]:'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;" id="chk-${a.no}">
-          ${s==='filled'?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':''}
-        </div>
-        <div style="flex:1;min-width:0;cursor:pointer;">
-          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;">#${a.no} · wk: ${a.wk}${e.qty!=null?' · qty: '+e.qty:' · qty: —'}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;">
-          <span style="font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:8px;background:${colors[s]};color:${s==='unchecked'?'var(--gray)':'#fff'};text-transform:uppercase;">${s}</span>
-          <span style="font-family:var(--mono);font-size:9px;color:var(--gray);">need ${a.wk}/wk</span>
+        <div class="qck">
+          <button class="qb ${ck==='yes'?'yes':'y-out'}" onclick="quickMark('${a.no}','yes',this)">✓ Yes</button>
+          <button class="qb ${ck==='half'?'half':'h-out'}" onclick="quickMark('${a.no}','half',this)">½ Half</button>
+          <button class="qb ${ck==='no'?'no':'n-out'}" onclick="quickMark('${a.no}','no',this)">✗ No</button>
         </div>
       `;
-
-      // tap anywhere on row → open detail sheet
-      row.onclick = (ev) => {
-        if(!ev.target.closest(`#chk-${a.no}`)) { openInvSheet(a.no); return; }
-        // tap the circle → quick toggle filled/unchecked
-        if(s === 'filled'){
-          saveEntry(a.no, {status:'unchecked', qty:null}).then(()=>{ logAction(a.no,'unchecked',null); drawList(); });
-        } else {
-          saveEntry(a.no, {status:'filled', qty: a.wk||1}).then(()=>{ logAction(a.no,'filled',a.wk||1); drawList(); });
-        }
-      };
-      list.appendChild(row);
+      list.appendChild(card);
     });
+    if(filtered.length>100){const n=document.createElement('div');n.className='empty';n.textContent='Showing 100 of '+filtered.length+' — use filters or search.';list.appendChild(n);}
+    updateDone();
   }
 
-  el.querySelectorAll('#rcFilters .fp').forEach(p=>{
-    p.onclick=()=>{ rf=p.dataset.f; el.querySelectorAll('#rcFilters .fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); drawList(); };
+  el.querySelector('#ckRack').addEventListener('change',drawCk);
+  el.querySelector('#ckStatus').addEventListener('change',drawCk);
+  el.querySelector('#ckSearch').addEventListener('input',drawCk);
+  drawCk();
+}
+
+async function quickMark(no, ck, btn){
+  const e=getEntry(no); e.ck=ck;
+  // Also update main status
+  const a=ARTICLES.find(x=>x.no===no);
+  if(ck==='yes'){ e.status='filled'; e.qty=e.qty||a?.wk||1; }
+  else if(ck==='no'){ e.status='out'; e.qty=0; }
+  else { e.status='low'; }
+  e.ts=new Date().toLocaleString('de-DE');
+  saveSession();
+  // Update button styles in-place
+  const row=btn.closest('[style*="border-radius:8px"]');
+  if(row){
+    const bgMap={yes:'var(--gs)',half:'var(--ys)',no:'var(--rs)'};
+    const bdMap={yes:'var(--green)',half:'var(--yellow)',no:'var(--red)'};
+    row.style.background=bgMap[ck]; row.style.borderColor=bdMap[ck];
+    row.querySelectorAll('.qb').forEach(b=>{ b.className='qb '+(b===btn?ck:b.textContent.includes('Yes')?'y-out':b.textContent.includes('Half')?'h-out':'n-out'); });
+    const badge=row.querySelector('[style*="text-transform:uppercase"]');
+    if(badge){ badge.style.background=bdMap[ck]; badge.style.color='#fff'; badge.textContent=ck; }
+  }
+  const done=ARTICLES.filter(a=>getEntry(a.no).ck&&getEntry(a.no).ck!=='unchecked').length;
+  const doneEl=document.getElementById('ckDone');
+  if(doneEl){
+    const yes=ARTICLES.filter(a=>getEntry(a.no).ck==='yes').length;
+    const half=ARTICLES.filter(a=>getEntry(a.no).ck==='half').length;
+    const no2=ARTICLES.filter(a=>getEntry(a.no).ck==='no').length;
+    doneEl.textContent='✓'+yes+' ½'+half+' ✗'+no2+' done';
+  }
+}
+
+// ─── SHEET ─────────────────────────────────────────────────────────
+function openSheet(no){
+  const a=ARTICLES.find(x=>x.no===no); if(!a)return;
+  const e=getEntry(no), s=deriveStatus(a);
+  sheetNo=no;
+  document.getElementById('shTitle').textContent=a.name;
+  document.getElementById('shSub').textContent='#'+a.no+' · '+a.grp+(a.wkrev?' · €'+Math.round(a.wkrev)+'/wk':'');
+  document.getElementById('shWk').textContent='wk: '+a.wk;
+  const sb=document.getElementById('shSt'); sb.className='stbar '+s;
+  document.getElementById('shStTxt').textContent=s==='filled'?'Fully stocked':s==='low'?'Low stock':s==='out'?'Out of stock':'Not checked';
+  document.getElementById('shRack').value=e.rack||'';
+  document.getElementById('shQty').value=e.qty??'';
+  document.getElementById('shExpiry').value=e.expiry||'';
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function closeSheet(){ document.getElementById('sheet').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); sheetNo=null; }
+
+document.getElementById('shRack').onchange=e=>{ if(!sheetNo)return; getEntry(sheetNo).rack=e.target.value; saveSession(); };
+document.getElementById('shQty').onchange=e=>{
+  if(!sheetNo)return; const v=e.target.value, qty=v===''?null:Number(v);
+  const entry=getEntry(sheetNo); entry.qty=qty;
+  const a=ARTICLES.find(x=>x.no===sheetNo);
+  entry.status=qty===null?'unchecked':qty<=0?'out':a&&qty<a.wk?'low':'filled';
+  saveSession(); snack('Saved ✓');
+};
+document.getElementById('shExpiry').onchange=e=>{ if(!sheetNo)return; getEntry(sheetNo).expiry=e.target.value||null; saveSession(); };
+function markSheet(status){
+  if(!sheetNo)return;
+  const e=getEntry(sheetNo), a=ARTICLES.find(x=>x.no===sheetNo);
+  e.status=status; e.qty=status==='filled'?(Number(document.getElementById('shQty').value)||a?.wk||1):0;
+  e.rack=document.getElementById('shRack').value;
+  e.expiry=document.getElementById('shExpiry').value||null;
+  e.ts=new Date().toLocaleString('de-DE');
+  saveSession(); snack(status==='filled'?'Marked filled ✓':'Marked out of stock'); closeSheet(); renderTab(currentTab);
+}
+
+// ─── REPORTS ───────────────────────────────────────────────────────
+function renderReports(el){
+  let filled=0,low=0,out=0,unc=0,ckYes=0,ckHalf=0,ckNo=0;
+  ARTICLES.forEach(a=>{
+    const s=deriveStatus(a),e=getEntry(a.no);
+    if(s==='filled')filled++;else if(s==='low')low++;else if(s==='out')out++;else unc++;
+    if(e.ck==='yes')ckYes++;else if(e.ck==='half')ckHalf++;else if(e.ck==='no')ckNo++;
   });
-  el.querySelector('#rcSearch').addEventListener('input', e=>{ rq=e.target.value.toLowerCase(); drawList(); });
-  drawList();
-}
+  el.innerHTML=`
+    <div class="sec">Inventory summary</div>
+    <table>
+      <tr><th>Metric</th><th>Count</th></tr>
+      <tr><td>Total articles</td><td>${ARTICLES.length}</td></tr>
+      <tr><td>Fully stocked</td><td style="color:var(--green);font-weight:700;">${filled} (${Math.round(filled/ARTICLES.length*100)}%)</td></tr>
+      <tr><td>Low stock</td><td style="color:var(--yellow);font-weight:700;">${low}</td></tr>
+      <tr><td>Out of stock</td><td style="color:var(--red);font-weight:700;">${out}</td></tr>
+      <tr><td>Not checked</td><td>${unc}</td></tr>
+    </table>
 
+    <div class="sec">Quick check results</div>
+    <table>
+      <tr><th>Status</th><th>Count</th></tr>
+      <tr><td>✓ Yes (filled)</td><td style="color:var(--green);font-weight:700;">${ckYes}</td></tr>
+      <tr><td>½ Half filled</td><td style="color:var(--yellow);font-weight:700;">${ckHalf}</td></tr>
+      <tr><td>✗ No (empty)</td><td style="color:var(--red);font-weight:700;">${ckNo}</td></tr>
+      <tr><td>Not checked yet</td><td>${ARTICLES.length-ckYes-ckHalf-ckNo}</td></tr>
+    </table>
 
-// ─── ANALYTICS PAGE ────────────────────────────────────────────────
-let analyticsSort = 'revenue_desc';
-let analyticsFilter = 'all';
-let analyticsQuery = '';
-let ANALYTICS_DATA = [];
+    <div class="sec">By rack</div>
+    <table><tr><th>Rack</th><th>Articles</th><th>Fill %</th></tr>
+      ${RACKS.map(r=>'<tr><td><b>'+r.code+'</b> '+r.label+'</td><td>'+rackArticles(r.code).length+'</td><td>'+(rackFillPct(r.code)===null?'—':rackFillPct(r.code)+'%')+'</td></tr>').join('')}
+    </table>
 
-async function loadAnalytics(){
-  const { data, error } = await sb.from('article_analytics').select('*').limit(5000);
-  if(error){ ANALYTICS_DATA = []; return; }
-  ANALYTICS_DATA = data || [];
-}
+    <div class="sec">Session info</div>
+    <table>
+      <tr><td>File</td><td style="font-family:var(--mono);font-size:11px;">${SESSION_INFO.filename||'—'}</td></tr>
+      <tr><td>Loaded at</td><td style="font-family:var(--mono);font-size:11px;">${SESSION_INFO.loadedAt||'—'}</td></tr>
+      <tr><td>Articles</td><td>${SESSION_INFO.count||0}</td></tr>
+    </table>
 
-function renderAnalytics(el){
-  el.innerHTML = '<div class="loading">Loading analytics…</div>';
-  loadAnalytics().then(() => drawAnalytics(el));
-}
-
-function drawAnalytics(el){
-  const totalRevenue = ANALYTICS_DATA.reduce((s,a)=>s+(a.revenue_per_week||0),0);
-  const totalAtRisk = ANALYTICS_DATA.reduce((s,a)=>s+(a.revenue_at_risk||0),0);
-  const totalQty = ANALYTICS_DATA.reduce((s,a)=>s+(a.weekly_sale||0),0);
-
-  el.innerHTML = `
-    <div class="stat-grid">
-      <div class="stat-card green"><div class="n">€${Math.round(totalRevenue).toLocaleString()}</div><div class="l">Weekly revenue (all)</div></div>
-      <div class="stat-card red"><div class="n">€${Math.round(totalAtRisk).toLocaleString()}</div><div class="l">Revenue at risk</div></div>
-      <div class="stat-card"><div class="n">${totalQty.toLocaleString()}</div><div class="l">Units sold / week</div></div>
-      <div class="stat-card yellow"><div class="n">${ANALYTICS_DATA.filter(a=>a.revenue_at_risk>0).length}</div><div class="l">Articles at risk</div></div>
+    <div class="sec">Export</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button onclick="exportRefill()" style="font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:var(--paper);cursor:pointer;box-shadow:var(--shadow);">⬇ Refill CSV</button>
+      <button onclick="exportFull()" style="font-family:var(--mono);font-size:11px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:var(--paper);cursor:pointer;box-shadow:var(--shadow);">⬇ Full inventory</button>
     </div>
-
-    <div class="sec">Sort & filter articles</div>
-    <div class="filters" id="sortPills">
-      <button class="fp ${analyticsSort==='revenue_desc'?'active':''}" data-s="revenue_desc">💰 Revenue ↓</button>
-      <button class="fp ${analyticsSort==='revenue_asc'?'active':''}" data-s="revenue_asc">💰 Revenue ↑</button>
-      <button class="fp ${analyticsSort==='qty_desc'?'active':''}" data-s="qty_desc">📦 Qty sold ↓</button>
-      <button class="fp ${analyticsSort==='qty_asc'?'active':''}" data-s="qty_asc">📦 Qty sold ↑</button>
-      <button class="fp ${analyticsSort==='risk_desc'?'active':''}" data-s="risk_desc">⚠️ At risk ↓</button>
-      <button class="fp ${analyticsSort==='name_asc'?'active':''}" data-s="name_asc">A–Z Name</button>
-    </div>
-    <div class="filters" id="statusPills">
-      <button class="fp ${analyticsFilter==='all'?'active':''}" data-f="all">All</button>
-      <button class="fp ${analyticsFilter==='out'?'active':''}" data-f="out">Out of stock</button>
-      <button class="fp ${analyticsFilter==='low'?'active':''}" data-f="low">Low stock</button>
-      <button class="fp ${analyticsFilter==='filled'?'active':''}" data-f="filled">Filled</button>
-      <button class="fp ${analyticsFilter==='unchecked'?'active':''}" data-f="unchecked">Unchecked</button>
-    </div>
-    <div class="search-row" style="margin-top:6px;">
-      <input id="analyticsSearch" type="text" placeholder="Search articles…" value="${analyticsQuery}">
-    </div>
-    <div id="analyticsTable"></div>
+    <button onclick="exportRackAssignment()" style="width:100%;margin-top:8px;font-family:var(--mono);font-size:12px;font-weight:700;padding:13px;border:none;border-radius:var(--r);background:var(--ink);color:var(--paper);cursor:pointer;">📋 Rack Assignment Report</button>
+    <button onclick="exportQuickCheck()" style="width:100%;margin-top:8px;font-family:var(--mono);font-size:12px;font-weight:700;padding:13px;border:none;border-radius:var(--r);background:var(--saffron);color:var(--ink);cursor:pointer;">📊 Weekly Quick Check Report</button>
   `;
-
-  // sort pill events
-  el.querySelectorAll('#sortPills .fp').forEach(p=>{
-    p.onclick=()=>{ analyticsSort=p.dataset.s; drawAnalyticsTable(el.querySelector('#analyticsTable')); el.querySelectorAll('#sortPills .fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); };
-  });
-  // filter pill events
-  el.querySelectorAll('#statusPills .fp').forEach(p=>{
-    p.onclick=()=>{ analyticsFilter=p.dataset.f; drawAnalyticsTable(el.querySelector('#analyticsTable')); el.querySelectorAll('#statusPills .fp').forEach(x=>x.classList.remove('active')); p.classList.add('active'); };
-  });
-  // search
-  el.querySelector('#analyticsSearch').addEventListener('input',e=>{ analyticsQuery=e.target.value.toLowerCase(); drawAnalyticsTable(el.querySelector('#analyticsTable')); });
-
-  drawAnalyticsTable(el.querySelector('#analyticsTable'));
 }
 
-function drawAnalyticsTable(container){
-  let data = [...ANALYTICS_DATA];
-
-  // filter by status
-  if(analyticsFilter !== 'all') data = data.filter(a => a.inv_status === analyticsFilter);
-
-  // filter by search
-  if(analyticsQuery) data = data.filter(a =>
-    (a.name||'').toLowerCase().includes(analyticsQuery) ||
-    (a.no||'').includes(analyticsQuery) ||
-    (a.grp||'').toLowerCase().includes(analyticsQuery)
-  );
-
-  // sort
-  const sorts = {
-    revenue_desc: (a,b)=>(b.revenue_per_week||0)-(a.revenue_per_week||0),
-    revenue_asc:  (a,b)=>(a.revenue_per_week||0)-(b.revenue_per_week||0),
-    qty_desc:     (a,b)=>(b.weekly_sale||0)-(a.weekly_sale||0),
-    qty_asc:      (a,b)=>(a.weekly_sale||0)-(b.weekly_sale||0),
-    risk_desc:    (a,b)=>(b.revenue_at_risk||0)-(a.revenue_at_risk||0),
-    name_asc:     (a,b)=>(a.name||'').localeCompare(b.name||''),
-  };
-  data.sort(sorts[analyticsSort] || sorts.revenue_desc);
-
-  container.innerHTML = '';
-
-  if(!data.length){ container.innerHTML='<div class="empty">No articles match.</div>'; return; }
-
-  const statusColor = { filled:'var(--green)', low:'var(--yellow)', out:'var(--red)', unchecked:'var(--gray)' };
-
-  // show top 100, with load more
-  const show = data.slice(0, 100);
-
-  show.forEach((a,i) => {
-    const row = document.createElement('div');
-    row.className = 'list-item';
-    row.style.flexDirection = 'column';
-    row.style.alignItems = 'flex-start';
-    row.style.gap = '4px';
-    row.style.cursor = 'pointer';
-    const sc = statusColor[a.inv_status] || 'var(--gray)';
-    row.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;width:100%;">
-        <span style="font-family:var(--mono);font-size:10px;color:var(--gray);width:22px;flex-shrink:0;">${i+1}</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:2px;">${a.grp} · #${a.no}${a.rack?' · '+a.rack:''}</div>
-        </div>
-        <div style="width:8px;height:8px;border-radius:50%;background:${sc};flex-shrink:0;"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;padding-left:30px;">
-        <div style="background:var(--gs);border-radius:4px;padding:4px 6px;text-align:center;">
-          <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green);">€${(a.revenue_per_week||0).toFixed(0)}</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--gray);">wk revenue</div>
-        </div>
-        <div style="background:var(--gray-soft);border-radius:4px;padding:4px 6px;text-align:center;">
-          <div style="font-family:var(--mono);font-size:11px;font-weight:700;">${a.weekly_sale||0}</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--gray);">units/wk</div>
-        </div>
-        <div style="background:${(a.revenue_at_risk||0)>0?'var(--rs)':'var(--gray-soft)'};border-radius:4px;padding:4px 6px;text-align:center;">
-          <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:${(a.revenue_at_risk||0)>0?'var(--red)':'var(--gray)'};">€${(a.revenue_at_risk||0).toFixed(0)}</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--gray);">at risk</div>
-        </div>
-      </div>
-    `;
-    row.onclick = () => openInvSheet(a.no);
-    container.appendChild(row);
-  });
-
-  if(data.length > 100){
-    const note = document.createElement('div');
-    note.className = 'empty';
-    note.textContent = `Showing 100 of ${data.length} — use search or filter to narrow down.`;
-    container.appendChild(note);
-  }
-
-  // export button
-  const expBtn = document.createElement('button');
-  expBtn.className = 'btn gray';
-  expBtn.style.cssText = 'width:100%;margin-top:12px;';
-  expBtn.textContent = `⬇ Export this list (${data.length} articles) as CSV`;
-  expBtn.onclick = () => {
-    const rows = [['Rank','Article No','Name','Group','Rack','Weekly Sale (units)','Price (€)','Weekly Revenue (€)','Annual Revenue (€)','Status','Qty in Rack','Shortfall','Revenue at Risk (€)']];
-    data.forEach((a,i) => rows.push([i+1,a.no,a.name,a.grp,a.rack||'',a.weekly_sale||0,a.normal_price||0,(a.revenue_per_week||0).toFixed(2),(a.revenue_per_year||0).toFixed(2),a.inv_status,a.qty_in_rack||0,a.weekly_shortfall||0,(a.revenue_at_risk||0).toFixed(2)]));
-    dlCsv(rows, `analytics-${todayStr()}.csv`);
-  };
-  container.appendChild(expBtn);
-}
-
-// ─── EXPORTS ──────────────────────────────────────────────────────
+// ─── EXPORTS ───────────────────────────────────────────────────────
 function exportRefill(){
-  const rows=[['Article No','Name','Group','Rack','Weekly Sale','On Hand','Status','Shortfall']];
-  ARTICLES.forEach(a=>{ const e=getEntry(a.no),s=deriveStatus(e,a); if(s==='low'||s==='out'){ const oh=s==='out'?0:(e.qty??0); rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,oh,s,Math.max(0,a.wk-oh)]); } });
-  dlCsv(rows,`refill-${todayStr()}.csv`);
+  const rows=[['Article No','Name','Group','Rack','Weekly Sale','On Hand','Status','Shortfall','Weekly Revenue']];
+  ARTICLES.filter(a=>{ const s=deriveStatus(a); return s==='low'||s==='out'; })
+    .sort((a,b)=>(b.wkrev||0)-(a.wkrev||0))
+    .forEach(a=>{ const e=getEntry(a.no),s=deriveStatus(a),oh=s==='out'?0:(e.qty??0); rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,oh,s,Math.max(0,a.wk-oh),'€'+Math.round(a.wkrev||0)]); });
+  dlCsv(rows,'refill-'+todayStr()+'.csv');
+}
+function exportFull(){
+  const rows=[['Article No','Name','Group','Rack','Weekly Sale','Weekly Revenue','On Hand','Status','Quick Check','Expiry','Last Updated']];
+  ARTICLES.forEach(a=>{ const e=getEntry(a.no); rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,'€'+Math.round(a.wkrev||0),e.qty??'',deriveStatus(a),e.ck||'',e.expiry||'',e.ts||'']); });
+  dlCsv(rows,'inventory-'+todayStr()+'.csv');
 }
 function exportRackAssignment(){
-  const rows=[['Rack','Rack Label','Article No','Article Name','Category','Weekly Sale','Price (EUR)','Status','Qty in Rack','Last Checked By','Last Checked']];
+  const rows=[['Rack','Rack Label','Article No','Article Name','Category','Weekly Sale','Weekly Revenue (EUR)','Price (EUR)','Status','Qty in Rack','Last Updated']];
   const byRack={};
   ARTICLES.forEach(a=>{ const e=getEntry(a.no); const r=e.rack||'No Rack'; if(!byRack[r])byRack[r]=[]; byRack[r].push(a); });
-  const order=[...RACKS.map(r=>r.code),'No Rack'];
-  order.forEach(code=>{
+  [...RACKS.map(r=>r.code),'No Rack'].forEach(code=>{
     const items=byRack[code]; if(!items||!items.length)return;
     const label=RACKS.find(r=>r.code===code)?.label||'';
     rows.push(['=== '+code+' - '+label+' ===','','','','','','','','','','']);
     items.sort((a,b)=>a.grp.localeCompare(b.grp)||a.name.localeCompare(b.name));
-    items.forEach(a=>{ const e=getEntry(a.no); rows.push([code,label,a.no,a.name,a.grp,a.wk,a.price||'',deriveStatus(e,a),e.qty??'',e.updated_by||'',e.updated_at?new Date(e.updated_at).toLocaleString('de-DE'):'']); });
+    items.forEach(a=>{ const e=getEntry(a.no); rows.push([code,label,a.no,a.name,a.grp,a.wk,Math.round(a.wkrev||0),a.price||'',deriveStatus(a),e.qty??'',e.ts||'']); });
     rows.push(['','','','','','','','','','','']);
   });
-  dlCsv(rows,`rack-assignment-${todayStr()}.csv`);
+  dlCsv(rows,'rack-assignment-'+todayStr()+'.csv');
 }
-function exportFull(){
-  const rows=[['Article No','Name','Group','Rack','Weekly Sale','On Hand','Status','Expiry','Updated By','Updated At']];
-  ARTICLES.forEach(a=>{ const e=getEntry(a.no); rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,e.qty??'',deriveStatus(e,a),e.expiry||'',e.updated_by||'',e.updated_at||'']); });
-  dlCsv(rows,`inventory-${todayStr()}.csv`);
+function exportQuickCheck(){
+  const rows=[['Weekly Quick Check — '+new Date().toLocaleDateString('de-DE'),'','','','','',''],
+    ['Checked by: '+SESSION_INFO.filename,'','','','','',''],[''],
+    ['Status','Article No','Name','Group','Rack','Weekly Sale','Weekly Revenue (EUR)']];
+  ['no','half','yes','unchecked'].forEach(ck=>{
+    const items=ARTICLES.filter(a=>{ const e=getEntry(a.no); return (e.ck||'unchecked')===ck; });
+    if(!items.length)return;
+    const labels={yes:'✓ YES — FILLED',half:'½ HALF FILLED',no:'✗ NO — EMPTY',unchecked:'— NOT CHECKED'};
+    rows.push([labels[ck],'','','','','','']);
+    items.sort((a,b)=>(b.wkrev||0)-(a.wkrev||0)).forEach(a=>{ const e=getEntry(a.no); rows.push([ck.toUpperCase(),a.no,a.name,a.grp,e.rack||'',a.wk,Math.round(a.wkrev||0)]); });
+    rows.push(['']);
+  });
+  dlCsv(rows,'quick-check-'+todayStr()+'.csv');
 }
 function dlCsv(rows,name){
-  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=name; a.click();
+  snack('Downloaded: '+name);
 }
 
-// ─── BARCODE SCANNER ──────────────────────────────────────────────
+// ─── BARCODE SCAN ──────────────────────────────────────────────────
 let scanStream=null,scanRaf=null;
-function openScanner(){ document.getElementById('scanModal').classList.add('open'); startScan(); }
+function openScan(){ document.getElementById('scanModal').classList.add('open'); startScan(); }
 async function startScan(){
   const hint=document.getElementById('scanHint');
-  if(!('BarcodeDetector' in window)){ hint.textContent='Camera scan not supported here — use text field below.'; return; }
+  if(!('BarcodeDetector' in window)){hint.textContent='Camera scanning not supported. Use text field.';return;}
   try{
     const det=new BarcodeDetector();
     scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-    const v=document.getElementById('scanVideo'); v.srcObject=scanStream;
-    const loop=async()=>{ try{ const c=await det.detect(v); if(c.length>0){ handleScan(c[0].rawValue); return; } }catch(_){} scanRaf=requestAnimationFrame(loop); };
+    document.getElementById('scanVideo').srcObject=scanStream;
+    const loop=async()=>{ try{const c=await det.detect(document.getElementById('scanVideo')); if(c.length>0){handleScan(c[0].rawValue);return;}}catch(_){} scanRaf=requestAnimationFrame(loop); };
     loop();
-  }catch(e){ hint.textContent='Camera error: '+e.message; }
+  }catch(e){hint.textContent='Camera error: '+e.message;}
 }
-function stopScan(){ if(scanRaf)cancelAnimationFrame(scanRaf); if(scanStream)scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; document.getElementById('scanModal').classList.remove('open'); }
+function stopScan(){ if(scanRaf)cancelAnimationFrame(scanRaf); if(scanStream)scanStream.getTracks().forEach(t=>t.stop()); document.getElementById('scanModal').classList.remove('open'); }
 function handleScan(code){
   stopScan();
-  const found=ARTICLES.find(a=>barcodes(a).includes(code.trim()));
-  if(found){ artQuery=''; artFilter='all'; showPage('articles'); setTimeout(()=>openInvSheet(found.no),200); }
+  const found=ARTICLES.find(a=>a.barcode===code.trim()||a.no===code.trim());
+  if(found){ artQuery=''; artFilter='all'; document.querySelectorAll('#navTabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab==='articles')); document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('pg-articles').classList.add('active'); currentTab='articles'; renderArticles(document.getElementById('pg-articles')); setTimeout(()=>openSheet(found.no),200); }
   else snack('Barcode not found: '+code);
 }
-document.getElementById('closeScanBtn').onclick=stopScan;
-document.getElementById('manualBarcode').addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.value.trim()){ handleScan(e.target.value.trim()); e.target.value=''; } });
+document.getElementById('manualBarcode').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim()){handleScan(e.target.value.trim());e.target.value='';}});
 
-// ─── REFRESH ──────────────────────────────────────────────────────
-async function doRefresh(){ snack('Refreshing…'); await loadAll(); renderPage(currentPage); }
-
-// ─── INIT ─────────────────────────────────────────────────────────
-(async()=>{
-  await loadAll();
-  updateHeader();
-  showPage('articles');
+// ─── INIT ──────────────────────────────────────────────────────────
+// Check for previous session
+(function(){
+  try{
+    const si=localStorage.getItem('bgs-session');
+    const ar=localStorage.getItem('bgs-articles');
+    if(si&&ar){
+      const info=JSON.parse(si);
+      const prev=document.getElementById('prevSession');
+      const title=document.getElementById('prevSessionTitle');
+      const inf=document.getElementById('prevSessionInfo');
+      prev.style.display='block';
+      title.textContent='Continue: '+info.filename;
+      inf.textContent=info.count+' articles · loaded '+info.loadedAt;
+    }
+  }catch(e){}
 })();
 </script>
 </body>

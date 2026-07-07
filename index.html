@@ -541,11 +541,33 @@ function rDash(el){
     <div class="rg" id="dR"></div>
     <div class="sec">Top Alerts</div>
     <div id="dA"></div>
+    <div class="sec">½ Half-Filled Articles</div>
+    <div id="dH"></div>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button onclick="render('dash')" style="flex:1;font-family:'Courier New',monospace;font-size:11px;padding:10px;border:1px solid #e8e0d0;border-radius:8px;background:#fff;cursor:pointer;">↺ Refresh</button>
       <button onclick="expRefill()" style="flex:1;font-family:'Courier New',monospace;font-size:11px;padding:10px;border:1px solid #e8e0d0;border-radius:8px;background:#fff;cursor:pointer;">⬇ Refill CSV</button>
     </div>`;
   RACKS.forEach(r=>{const p=RP(r.code),c=RC(p);const t=document.createElement('div');t.className='rt '+(c||'');t.innerHTML=`<div class="rn">${r.code}</div><div class="rl">${r.label}</div><div class="rp">${p===null?'—':p+'%'}</div><div class="rb"><i style="width:${p||0}%"></i></div><div class="rc">${RA(r.code).length} arts</div>`;t.onclick=()=>{tab='racks';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.t==='racks'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById('pg-racks').classList.add('active');mapR=r.code;rMap(document.getElementById('pg-racks'));};el.querySelector('#dR').appendChild(t);});
+  // Half filled section
+  const dH=el.querySelector('#dH');
+  const halfItems=A.filter(a=>{const s=S(a),e=E(a.no),ck=e.ck||'';return ck==='half'||s==='low';}).sort((a,b)=>(b.wkrev||0)-(a.wkrev||0)).slice(0,10);
+  if(!halfItems.length){dH.innerHTML='<div class="empty" style="padding:8px 0;">No half-filled articles yet.</div>';}
+  else{
+    halfItems.forEach(a=>{
+      const e=E(a.no),s=S(a);
+      const qty=e.qty??0, needed=Math.max(0,a.wk-qty);
+      const d=document.createElement('div');d.className='ar';
+      d.style.cssText='background:#fdf6e3;border:1px solid #b07a10;border-radius:8px;margin-bottom:5px;';
+      d.innerHTML='<div class="dot low"></div><div class="ai"><div class="an">'+a.name+'</div><div class="as2">'+e.rack+' · qty:'+qty+' / need:'+a.wk+' · short:'+needed+'</div></div><span style="font-family:\'Courier New\',monospace;font-size:10px;color:#b07a10;font-weight:600;">€'+Math.round(a.wkrev||0)+'/wk</span>';
+      d.onclick=()=>openSheet(a.no);dH.appendChild(d);
+    });
+    const showAll=document.createElement('button');
+    showAll.style.cssText='width:100%;font-family:\'Courier New\',monospace;font-size:10px;padding:8px;border:1px solid #e8e0d0;border-radius:6px;background:#fff;cursor:pointer;margin-top:4px;';
+    showAll.textContent='⬇ Download full half-filled list ('+A.filter(a=>{const s=S(a),e=E(a.no);return e.ck==='half'||s==='low';}).length+' articles)';
+    showAll.onclick=expHalf;
+    dH.appendChild(showAll);
+  }
+
   const al=A.filter(a=>{const s=S(a);return s==='low'||s==='out';}).sort((a,b)=>(b.wkrev||0)-(a.wkrev||0)).slice(0,15);
   const dA=el.querySelector('#dA');
   if(!al.length){dA.innerHTML='<div class="empty" style="padding:8px 0;">No alerts 👍</div>';}
@@ -741,6 +763,7 @@ function rRep(el){
       </label>
     </div>
     <div class="sec">Download Reports</div>
+    <button class="ebtn sf" onclick="expHalf()">½ Half-Filled Report</button>
     <button class="ebtn lt" onclick="expRefill()">⬇ Refill List CSV</button>
     <button class="ebtn lt" onclick="expFull()">⬇ Full Inventory CSV</button>
     <button class="ebtn dk" onclick="expRack()">📋 Rack Assignment Report</button>
@@ -769,6 +792,25 @@ document.getElementById('shE').onchange=e=>{if(!shNo)return;E(shNo).expiry=e.tar
 function mark(status){if(!shNo)return;const e=E(shNo),a=A.find(x=>x.no===shNo);e.status=status;e.qty=status==='filled'?(+(document.getElementById('shQ').value)||a?.wk||1):0;e.rack=document.getElementById('shR').value;e.expiry=document.getElementById('shE').value||null;e.ts=new Date().toLocaleString('de-DE');save();snack(status==='filled'?'Filled ✓':'Out of stock');closeSheet();render(tab);}
 
 // EXPORTS
+function expHalf(){
+  // Articles marked as Half in quick check OR low stock status
+  const rows=[['Article No','Name','Category','Rack','Weekly Sale','Qty in Rack','Needed','Revenue at Risk (EUR)','Quick Check','Last Updated']];
+  const half = A.filter(a=>{
+    const e=E(a.no), s=S(a), ck=e.ck||'';
+    return ck==='half' || s==='low';
+  }).sort((a,b)=>(b.wkrev||0)-(a.wkrev||0));
+  if(!half.length){ snack('No half-filled articles found'); return; }
+  half.forEach(a=>{
+    const e=E(a.no),s=S(a);
+    const qty=e.qty??0;
+    const needed=Math.max(0,a.wk-qty);
+    const risk=Math.round((needed/Math.max(a.wk,1))*(a.wkrev||0));
+    rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,qty,needed,risk,e.ck||s,e.ts||'']);
+  });
+  dl(rows,'half-filled-'+td()+'.csv');
+  snack('Downloaded '+half.length+' half-filled articles');
+}
+
 function expRefill(){const rows=[['Article No','Name','Group','Rack','Wk Sale','On Hand','Status','Shortfall','Wk Revenue']];A.filter(a=>{const s=S(a);return s==='low'||s==='out';}).sort((a,b)=>(b.wkrev||0)-(a.wkrev||0)).forEach(a=>{const e=E(a.no),s=S(a),oh=s==='out'?0:(e.qty??0);rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,oh,s,Math.max(0,a.wk-oh),Math.round(a.wkrev||0)]);});dl(rows,'refill-'+td()+'.csv');}
 function expFull(){const rows=[['No','Name','Group','Rack','Wk Sale','Wk Revenue','On Hand','Status','Quick Check','Expiry','Updated']];A.forEach(a=>{const e=E(a.no);rows.push([a.no,a.name,a.grp,e.rack||'',a.wk,Math.round(a.wkrev||0),e.qty??'',S(a),e.ck||'',e.expiry||'',e.ts||'']);});dl(rows,'inventory-'+td()+'.csv');}
 function expRack(){const rows=[['Rack','Label','No','Name','Category','Wk Sale','Wk Revenue','Price','Status','Qty','Updated']];const byR={};A.forEach(a=>{const e=E(a.no);const r=e.rack||'No Rack';if(!byR[r])byR[r]=[];byR[r].push(a);});[...RACKS.map(r=>r.code),'No Rack'].forEach(code=>{const items=byR[code];if(!items||!items.length)return;const label=RACKS.find(r=>r.code===code)?.label||'';rows.push(['=== '+code+' - '+label+' ===','','','','','','','','','','']);items.sort((a,b)=>a.grp.localeCompare(b.grp)||a.name.localeCompare(b.name));items.forEach(a=>{const e=E(a.no);rows.push([code,label,a.no,a.name,a.grp,a.wk,Math.round(a.wkrev||0),a.price||'',S(a),e.qty??'',e.ts||'']);});rows.push(['','','','','','','','','','','']);});dl(rows,'rack-assignment-'+td()+'.csv');}

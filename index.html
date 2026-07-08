@@ -1013,6 +1013,7 @@ function rCount(el){
   results.innerHTML='<div class="empty">Type to search…</div>';
   drawRecent();
 
+  _drawRecentRef = drawRecent;
   function drawRecent(){
     const rec=el.querySelector('#cRecent');
     if(!rec)return;
@@ -1031,70 +1032,118 @@ function rCount(el){
 }
 
 function makeCountCard(a){
-  const c=getCount(a.no);
-  const loc=LOCS.find(l=>l.code===countLoc);
-  const card=document.createElement('div');card.className='count-card';
+  const c = getCount(a.no);
+  const loc = LOCS.find(l=>l.code===countLoc);
+  const card = document.createElement('div');
+  card.className = 'count-card';
+  card.style.cssText = 'border:2px solid '+loc.color+';';
 
-  card.innerHTML=`
+  card.innerHTML = `
     <div class="cn">${a.name}</div>
-    <div class="cs">#${a.no} · ${a.grp} · Weekly need: ${a.wk}</div>
-    <div class="count-grid">
+    <div class="cs">#${a.no} · ${a.grp} · Weekly need: <b>${a.wk}</b></div>
+
+    <div style="background:${loc.bg};border-radius:8px;padding:12px;margin-bottom:10px;">
+      <div style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:${loc.color};text-transform:uppercase;margin-bottom:8px;">${loc.label}</div>
+      <input
+        type="number" min="0"
+        id="ci-${a.no}"
+        value="${c[countLoc]||''}"
+        placeholder="Enter quantity…"
+        style="width:100%;font-size:28px;font-weight:900;padding:12px;border:2px solid ${loc.color};border-radius:8px;background:#fff;outline:none;text-align:center;"
+      >
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
       ${LOCS.map(l=>`
-        <div class="count-box${countLoc===l.code?' active-loc':''}" style="border-color:${l.color};${countLoc===l.code?'background:'+l.bg+';':''}">
-          <div class="cbl" style="color:${l.color};">${l.label}</div>
-          <div class="cbn" style="color:${countLoc===l.code?l.color:'#1a1209'};">${c[l.code]||0}</div>
+        <div style="text-align:center;padding:8px 4px;border:1.5px solid ${l.color};border-radius:8px;background:${l.bg};${countLoc===l.code?'opacity:1;':'opacity:0.5;'}">
+          <div style="font-family:'Courier New',monospace;font-size:9px;color:${l.color};text-transform:uppercase;margin-bottom:3px;">${l.label}</div>
+          <div style="font-size:18px;font-weight:800;color:${l.color};">${countLoc===l.code?'—':c[l.code]||0}</div>
         </div>`).join('')}
     </div>
-    <input class="count-inp" type="number" min="0" placeholder="Enter count for ${loc?.label}…" value="${c[countLoc]||''}" id="ci-${a.no}" style="border-color:${loc?.color};">
-    <div class="count-total">
-      <span class="ct">Total across all locations</span>
-      <span class="cv" id="ct-${a.no}">${totalCount(a.no)}</span>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f5f0e8;border-radius:8px;margin-bottom:10px;">
+      <span style="font-family:'Courier New',monospace;font-size:10px;color:#7a6e62;">Total all locations</span>
+      <span style="font-size:18px;font-weight:900;" id="ct-${a.no}">${totalCount(a.no)}</span>
     </div>
-    <div style="display:flex;gap:6px;margin-top:8px;">
-      <button onclick="saveCount('${a.no}')" style="flex:1;font-family:'Courier New',monospace;font-size:11px;padding:10px;border:none;border-radius:8px;background:${loc?.color};color:#fff;cursor:pointer;font-weight:700;">✓ Save Count</button>
-      <button onclick="clearCount('${a.no}')" style="font-family:'Courier New',monospace;font-size:11px;padding:10px 12px;border:1.5px solid #e8e0d0;border-radius:8px;background:#fff;cursor:pointer;color:#c0392b;">Clear</button>
+
+    <div style="display:flex;gap:8px;">
+      <button onclick="saveLocCount('${a.no}')" style="flex:1;font-family:'Courier New',monospace;font-size:12px;font-weight:700;padding:13px;border:none;border-radius:8px;background:${loc.color};color:#fff;cursor:pointer;">✓ Save</button>
+      <button onclick="document.getElementById('cSrch').value='';document.getElementById('cSrch').focus();document.getElementById('cResults').innerHTML='<div class=\"empty\">Type to search…</div>';" style="font-family:'Courier New',monospace;font-size:11px;padding:12px;border:1.5px solid #e8e0d0;border-radius:8px;background:#fff;cursor:pointer;">Next →</button>
     </div>
   `;
 
-  // Auto-save on Enter
-  const inp=card.querySelector('.count-inp');
-  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') saveCount(a.no, card); });
-  
+  const inp = card.querySelector('#ci-'+a.no);
+
+  // Live update total display
+  inp.addEventListener('input', ()=>{
+    const v = parseInt(inp.value)||0;
+    const c2 = getCount(a.no);
+    const others = LOCS.filter(l=>l.code!==countLoc).reduce((s,l)=>s+(c2[l.code]||0),0);
+    const totEl = card.querySelector('#ct-'+a.no);
+    if(totEl) totEl.textContent = v + others;
+  });
+
+  // Enter saves
+  inp.addEventListener('keydown', e=>{
+    if(e.key==='Enter') saveLocCount(a.no);
+  });
+
   return card;
 }
 
-function saveCount(no, card){
-  const inp=document.getElementById('ci-'+no)||(card?.querySelector('.count-inp'));
-  if(!inp)return;
-  const val=inp.value;
-  const qty=val===''?0:Math.max(0,parseInt(val)||0);
-  const c=getCount(no);
-  c[countLoc]=qty;
-  c.ts=new Date().toISOString();
-  // Update total display
-  const tot=document.getElementById('ct-'+no);
-  if(tot)tot.textContent=totalCount(no);
-  // Update inventory status based on total
-  const a=A.find(x=>x.no===no);
-  const total=totalCount(no);
-  const e=E(no);
-  e.qty=total;
-  e.status=total<=0?'out':a&&total<a.wk?'low':'filled';
+function saveLocCount(no){
+  const inp = document.getElementById('ci-'+no);
+  if(!inp) return;
+  const qty = inp.value==='' ? 0 : Math.max(0, parseInt(inp.value)||0);
+  const c = getCount(no);
+  c[countLoc] = qty;
+  c.ts = new Date().toISOString();
+  const tot = totalCount(no);
+  const a = A.find(x=>x.no===no);
+  const e = E(no);
+  e.qty = tot;
+  e.status = tot<=0?'out':a&&tot<a.wk?'low':'filled';
   save();
-  snack('Saved: '+qty+' for '+(LOCS.find(l=>l.code===countLoc)?.label||countLoc));
+  const loc = LOCS.find(l=>l.code===countLoc);
+  snack(qty+' saved for '+loc.label+' · total: '+tot);
+  // Move to next — clear search and focus
+  setTimeout(()=>{
+    const srch = document.getElementById('cSrch');
+    const results = document.getElementById('cResults');
+    if(srch){ srch.value=''; srch.focus(); }
+    if(results) results.innerHTML='<div class="empty">Type to search…</div>';
+    drawRecentCount();
+  }, 400);
 }
 
-function clearCount(no){
-  const c=getCount(no);
-  c[countLoc]=0;
-  c.ts=new Date().toISOString();
-  const inp=document.getElementById('ci-'+no);
-  if(inp)inp.value='';
-  const tot=document.getElementById('ct-'+no);
-  if(tot)tot.textContent=totalCount(no);
+function saveAllCounts(no){ saveLocCount(no); }
+function clearAllCounts(no){ clearCount2(no); }
+function saveCount(no){ saveLocCount(no); }
+
+function clearCount2(no){
+  const c = getCount(no);
+  c[countLoc] = 0;
+  c.ts = new Date().toISOString();
+  const inp = document.getElementById('ci-'+no);
+  if(inp){ inp.value=''; inp.focus(); }
+  const e = E(no);
+  const tot = totalCount(no);
+  e.qty = tot;
+  e.status = tot<=0?'out':'low';
   save();
-  snack('Cleared');
+  snack('Cleared '+LOCS.find(l=>l.code===countLoc)?.label);
 }
+
+function clearCount(no){ clearCount2(no); }
+
+let _drawRecentRef = null;
+function drawRecentCount(){
+  if(_drawRecentRef) _drawRecentRef();
+}
+
+  // kept for compatibility
+
+
 
 function expCountReport(){
   const counted=A.filter(a=>{ const c=getCount(a.no); return c.NS||c.OS||c.LG; });

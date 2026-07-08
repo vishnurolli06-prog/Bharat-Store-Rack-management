@@ -940,17 +940,76 @@ function rCount(el){
   // Search
   const srch=el.querySelector('#cSrch');
   const results=el.querySelector('#cResults');
+  let selectedArticle = null;
+  let searchTimer = null;
 
+  // Show dropdown list first — tap article to open its count card
   function drawResults(){
     const q=srch.value.toLowerCase().trim();
     results.innerHTML='';
-    if(!q){results.innerHTML='<div class="empty">Type to search…</div>';drawRecent();return;}
-    const found=A.filter(a=>a.name.toLowerCase().includes(q)||a.no.includes(q)||a.barcode.includes(q)).slice(0,20);
+    selectedArticle=null;
+    if(!q){
+      results.innerHTML='<div class="empty">Type to search…</div>';
+      return;
+    }
+    const found=A.filter(a=>
+      a.name.toLowerCase().includes(q)||
+      a.no.includes(q)||
+      (a.barcode&&a.barcode.includes(q))
+    ).slice(0,25);
     if(!found.length){results.innerHTML='<div class="empty">No articles found.</div>';return;}
-    found.forEach(a=>results.appendChild(makeCountCard(a, true)));
+
+    // Show as simple tap list — not full cards (so typing isn't interrupted)
+    const list=document.createElement('div');
+    list.style.cssText='background:#fff;border:1px solid #e8e0d0;border-radius:10px;overflow:hidden;';
+    found.forEach((a,i)=>{
+      const loc=LOCS.find(l=>l.code===countLoc);
+      const c=getCount(a.no);
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;padding:10px 13px;gap:10px;border-bottom:1px solid #e8e0d0;cursor:pointer;';
+      if(i===found.length-1)row.style.borderBottom='none';
+      row.innerHTML=`
+        <div style="width:10px;height:10px;border-radius:50%;background:${loc?.color};flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}</div>
+          <div style="font-family:'Courier New',monospace;font-size:10px;color:#7a6e62;">#${a.no} · ${a.grp} · wk:${a.wk}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:16px;font-weight:800;color:${loc?.color};">${c[countLoc]||0}</div>
+          <div style="font-family:'Courier New',monospace;font-size:9px;color:#7a6e62;">total:${totalCount(a.no)}</div>
+        </div>`;
+      row.onmousedown=(e)=>e.preventDefault(); // prevent blur on click
+      row.onclick=()=>openCountCard(a);
+      list.appendChild(row);
+    });
+    results.appendChild(list);
   }
 
-  srch.addEventListener('input', drawResults);
+  function openCountCard(a){
+    selectedArticle=a;
+    srch.value=a.name;
+    results.innerHTML='';
+    const card=makeCountCard(a);
+    results.appendChild(card);
+    // Focus the count input
+    setTimeout(()=>{
+      const inp=card.querySelector('.count-inp');
+      if(inp){ inp.focus(); inp.select(); }
+    },50);
+  }
+
+  // Debounced search — waits 300ms after typing stops before searching
+  srch.addEventListener('input', ()=>{
+    clearTimeout(searchTimer);
+    // If user cleared the field, reset immediately
+    if(!srch.value.trim()){ results.innerHTML='<div class="empty">Type to search…</div>'; selectedArticle=null; return; }
+    searchTimer=setTimeout(drawResults, 300);
+  });
+
+  srch.addEventListener('keydown', e=>{
+    if(e.key==='Escape'){ srch.value=''; results.innerHTML='<div class="empty">Type to search…</div>'; selectedArticle=null; srch.focus(); }
+  });
+
   results.innerHTML='<div class="empty">Type to search…</div>';
   drawRecent();
 
@@ -965,13 +1024,13 @@ function rCount(el){
       const loc=LOCS.find(l=>l.code===countLoc);
       const row=document.createElement('div');row.className='recent-row';
       row.innerHTML=`<div style="width:10px;height:10px;border-radius:50%;background:${loc?.color||'#aaa'};flex-shrink:0;"></div><div class="ai"><div class="an">${a.name}</div><div class="as2">#${a.no} · wk:${a.wk}</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-size:16px;font-weight:800;">${c[countLoc]||0}</div><div style="font-family:'Courier New',monospace;font-size:9px;color:#7a6e62;">total:${totalCount(a.no)}</div></div>`;
-      row.onclick=()=>{srch.value=a.name;drawResults();};
+      row.onclick=()=>openCountCard(a);
       rec.appendChild(row);
     });
   }
 }
 
-function makeCountCard(a, focus){
+function makeCountCard(a){
   const c=getCount(a.no);
   const loc=LOCS.find(l=>l.code===countLoc);
   const card=document.createElement('div');card.className='count-card';
@@ -1000,7 +1059,7 @@ function makeCountCard(a, focus){
   // Auto-save on Enter
   const inp=card.querySelector('.count-inp');
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter') saveCount(a.no, card); });
-  if(focus) setTimeout(()=>inp.focus(),100);
+  
   return card;
 }
 

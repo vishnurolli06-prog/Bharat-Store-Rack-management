@@ -326,13 +326,10 @@ tr:last-child td { border-bottom: none; }
   <div style="padding:0 10px 10px;">
     <input type="text" id="manualBarcode" placeholder="Or type / paste barcode + Enter"
       style="width:100%;font-family:var(--mono);font-size:13px;padding:10px;border:1px solid #444;border-radius:6px;background:#111;color:#fff;">
-    <div style="font-family:var(--mono);font-size:10px;color:#666;text-align:center;margin-top:6px;">
-      iOS: Allow camera access when prompted · Android: Auto-detects
-    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:#666;text-align:center;margin-top:6px;">Reads EAN-13, EAN-8, Code-128 barcodes · iOS &amp; Android</div>
   </div>
 </div>
 
-<canvas id="scanCanvas" style="display:none;"></canvas>
 <div class="snackbar" id="snackbar"></div>
 
 <script>
@@ -1591,87 +1588,101 @@ function downloadCSV(rows, filename) {
 ══════════════════════════════════════════════ */
 function openScanner() {
   document.getElementById('scanner').classList.add('open');
-  startScanner();
+  document.getElementById('scannerHint').textContent = 'Loading scanner…';
+  loadZXing(startScanner);
+}
+
+function loadZXing(cb) {
+  if (window.ZXing) { cb(); return; }
+  const s   = document.createElement('script');
+  s.src     = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+  s.onload  = cb;
+  s.onerror = () => {
+    // ZXing failed — try native BarcodeDetector
+    document.getElementById('scannerHint').textContent = 'Using built-in scanner…';
+    startNativeScanner();
+  };
+  document.head.appendChild(s);
 }
 
 async function startScanner() {
   const hint  = document.getElementById('scannerHint');
   const video = document.getElementById('scannerVideo');
 
-  // Get camera stream — works on both iOS and Android
   try {
-    scanStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    video.srcObject = scanStream;
-    await video.play();
+    // ZXing handles camera access and EAN-13 decoding (works iOS + Android)
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    hint.textContent = 'Starting camera…';
+
+    await codeReader.decodeFromConstraints(
+      { video: { facingMode: 'environment' } },
+      video,
+      (result, err) => {
+        if (result) {
+          codeReader.reset();
+          handleBarcode(result.getText());
+        }
+        // err is normal when no barcode in frame — ignore it
+      }
+    );
+
+    hint.textContent = 'Hold barcode inside the frame';
+
+    // Store reader for cleanup
+    scanStream = { _zxing: codeReader, getTracks: () => [] };
+
   } catch(e) {
-    hint.textContent = 'Camera error: ' + e.message + '. Use the text field below.';
+    hint.textContent = 'Camera error: ' + e.message;
+    // Try native as last resort
+    startNativeScanner();
+  }
+}
+
+async function startNativeScanner() {
+  const hint  = document.getElementById('scannerHint');
+  const video = document.getElementById('scannerVideo');
+
+  if (!('BarcodeDetector' in window)) {
+    hint.textContent = 'Scanner not supported on this device. Please type the barcode below.';
     return;
   }
 
-  hint.textContent = 'Hold barcode inside the frame';
-
-  // Try native BarcodeDetector first (Android Chrome, some browsers)
-  if ('BarcodeDetector' in window) {
-    try {
-      const det = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code'] });
-      const nativeLoop = async () => {
-        try {
-          const codes = await det.detect(video);
-          if (codes.length > 0) { handleBarcode(codes[0].rawValue); return; }
-        } catch(_) {}
-        scanRaf = requestAnimationFrame(nativeLoop);
-      };
-      nativeLoop();
-      return;
-    } catch(_) {}
-  }
-
-  // Fallback: jsQR — works on iOS Safari and all browsers
-  hint.textContent = 'Loading scanner…';
-  loadJsQR(() => {
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    video.srcObject = scanStream;
+    await video.play();
     hint.textContent = 'Hold barcode inside the frame';
-    const canvas = document.getElementById('scanCanvas');
-    const ctx    = canvas.getContext('2d');
 
-    const jsqrLoop = () => {
-      if (!scanStream) return;
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width  = video.videoWidth  || 640;
-        canvas.height = video.videoHeight || 480;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'dontInvert'
-        });
-        if (code && code.data) {
-          handleBarcode(code.data);
-          return;
-        }
-      }
-      scanRaf = requestAnimationFrame(jsqrLoop);
+    const det = new BarcodeDetector({
+      formats: ['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code','data_matrix']
+    });
+
+    const loop = async () => {
+      try {
+        const codes = await det.detect(video);
+        if (codes.length > 0) { handleBarcode(codes[0].rawValue); return; }
+      } catch(_) {}
+      scanRaf = requestAnimationFrame(loop);
     };
-    jsqrLoop();
-  });
-}
-
-function loadJsQR(cb) {
-  if (window.jsQR) { cb(); return; }
-  const s   = document.createElement('script');
-  s.src     = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-  s.onload  = cb;
-  s.onerror = () => {
-    document.getElementById('scannerHint').textContent =
-      'Could not load scanner. Please type the barcode below.';
-  };
-  document.head.appendChild(s);
+    loop();
+  } catch(e) {
+    hint.textContent = 'Camera error: ' + e.message + '. Type barcode below.';
+  }
 }
 
 function stopScanner() {
-  if (scanRaf) cancelAnimationFrame(scanRaf);
-  scanRaf = null;
+  // Stop ZXing reader if active
+  if (scanStream && scanStream._zxing) {
+    try { scanStream._zxing.reset(); } catch(_) {}
+    scanStream = null;
+  }
+  // Stop native stream if active
+  if (scanRaf) { cancelAnimationFrame(scanRaf); scanRaf = null; }
   if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  const video = document.getElementById('scannerVideo');
+  if (video.srcObject) { video.srcObject = null; }
   document.getElementById('scanner').classList.remove('open');
 }
 

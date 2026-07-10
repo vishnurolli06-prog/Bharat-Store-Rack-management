@@ -1031,9 +1031,11 @@ function rCount(el){
   }
 }
 
+
 function makeCountCard(a){
   const c = getCount(a.no);
   const loc = LOCS.find(l=>l.code===countLoc);
+  const existing = c[countLoc]||0;
   const card = document.createElement('div');
   card.className = 'count-card';
   card.style.cssText = 'border:2px solid '+loc.color+';';
@@ -1043,21 +1045,24 @@ function makeCountCard(a){
     <div class="cs">#${a.no} · ${a.grp} · Weekly need: <b>${a.wk}</b></div>
 
     <div style="background:${loc.bg};border-radius:8px;padding:12px;margin-bottom:10px;">
-      <div style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:${loc.color};text-transform:uppercase;margin-bottom:8px;">${loc.label}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:${loc.color};text-transform:uppercase;">${loc.label}</div>
+        ${existing>0?`<div style="font-family:'Courier New',monospace;font-size:11px;color:${loc.color};background:#fff;padding:3px 8px;border-radius:6px;">Already: <b>${existing}</b></div>`:''}
+      </div>
       <input
         type="number" min="0"
         id="ci-${a.no}"
-        value="${c[countLoc]||''}"
-        placeholder="Enter quantity…"
+        value=""
+        placeholder="${existing>0?'Enter more quantity to add…':'Enter quantity…'}"
         style="width:100%;font-size:28px;font-weight:900;padding:12px;border:2px solid ${loc.color};border-radius:8px;background:#fff;outline:none;text-align:center;"
       >
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
       ${LOCS.map(l=>`
-        <div style="text-align:center;padding:8px 4px;border:1.5px solid ${l.color};border-radius:8px;background:${l.bg};${countLoc===l.code?'opacity:1;':'opacity:0.5;'}">
+        <div style="text-align:center;padding:8px 4px;border:1.5px solid ${l.color};border-radius:8px;background:${l.bg};opacity:${countLoc===l.code?1:0.5};">
           <div style="font-family:'Courier New',monospace;font-size:9px;color:${l.color};text-transform:uppercase;margin-bottom:3px;">${l.label}</div>
-          <div style="font-size:18px;font-weight:800;color:${l.color};">${countLoc===l.code?'—':c[l.code]||0}</div>
+          <div style="font-size:18px;font-weight:800;color:${l.color};">${c[l.code]||0}</div>
         </div>`).join('')}
     </div>
 
@@ -1066,57 +1071,71 @@ function makeCountCard(a){
       <span style="font-size:18px;font-weight:900;" id="ct-${a.no}">${totalCount(a.no)}</span>
     </div>
 
-    <div style="display:flex;gap:8px;">
-      <button onclick="saveLocCount('${a.no}')" style="flex:1;font-family:'Courier New',monospace;font-size:12px;font-weight:700;padding:13px;border:none;border-radius:8px;background:${loc.color};color:#fff;cursor:pointer;">✓ Save</button>
-      <button onclick="document.getElementById('cSrch').value='';document.getElementById('cSrch').focus();document.getElementById('cResults').innerHTML='<div class=\"empty\">Type to search…</div>';" style="font-family:'Courier New',monospace;font-size:11px;padding:12px;border:1.5px solid #e8e0d0;border-radius:8px;background:#fff;cursor:pointer;">Next →</button>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button id="btn-add-${a.no}" onclick="saveLocCount('${a.no}','add')" style="flex:1;font-family:'Courier New',monospace;font-size:12px;font-weight:700;padding:13px;border:none;border-radius:8px;background:${loc.color};color:#fff;cursor:pointer;">➕ Add${existing>0?' to '+existing:''}</button>
+      <button onclick="saveLocCount('${a.no}','replace')" style="flex:1;font-family:'Courier New',monospace;font-size:11px;font-weight:700;padding:13px;border:2px solid ${loc.color};border-radius:8px;background:#fff;color:${loc.color};cursor:pointer;">↺ Replace</button>
     </div>
+    <button onclick="document.getElementById('cSrch').value='';document.getElementById('cSrch').focus();document.getElementById('cResults').innerHTML='<div class=\"empty\">Type to search…</div>';" style="width:100%;font-family:'Courier New',monospace;font-size:11px;padding:10px;border:1.5px solid #e8e0d0;border-radius:8px;background:#fff;cursor:pointer;color:#7a6e62;">Next article →</button>
   `;
 
   const inp = card.querySelector('#ci-'+a.no);
 
-  // Live update total display — count data only
+  // Live preview total
   inp.addEventListener('input', ()=>{
     const v = parseInt(inp.value)||0;
     const c2 = getCount(a.no);
+    const ex = c2[countLoc]||0;
     const others = LOCS.filter(l=>l.code!==countLoc).reduce((s,l)=>s+(c2[l.code]||0),0);
     const totEl = card.querySelector('#ct-'+a.no);
-    if(totEl) totEl.textContent = v + others;
+    if(totEl) totEl.textContent = (ex+v+others)+' (if added) · '+(v+others)+' (if replaced)';
   });
 
-  // Enter saves
+  // Enter = Add
   inp.addEventListener('keydown', e=>{
-    if(e.key==='Enter') saveLocCount(a.no);
+    if(e.key==='Enter') saveLocCount(a.no,'add');
   });
 
   return card;
 }
-
-function saveLocCount(no){
+function saveLocCount(no, mode){
   const inp = document.getElementById('ci-'+no);
   if(!inp) return;
-  const qty = inp.value==='' ? 0 : Math.max(0, parseInt(inp.value)||0);
+  if(inp.value===''){snack('Please enter a quantity first');inp.focus();return;}
+  const entered = Math.max(0, parseInt(inp.value)||0);
   const c = getCount(no);
-  c[countLoc] = qty;
+  const existing = c[countLoc]||0;
+  const newQty = mode==='replace' ? entered : existing + entered;
+  c[countLoc] = newQty;
   const nowStr = new Date().toISOString();
-  c['ts_'+countLoc] = nowStr;  // per-location timestamp
-  c.ts = nowStr;               // last updated overall
-  // COUNT is completely separate from rack filling check — do NOT touch ST
+  c['ts_'+countLoc] = nowStr;
+  c.ts = nowStr;
   save();
   const tot = totalCount(no);
   const loc = LOCS.find(l=>l.code===countLoc);
-  snack(qty+' saved for '+loc.label+' · total: '+tot);
+  const msg = mode==='replace'
+    ? '↺ Replaced: '+newQty+' in '+loc.label
+    : '➕ Added '+entered+' → '+newQty+' in '+loc.label+' · total: '+tot;
+  snack(msg);
+  // Update add button label
+  const addBtn = document.getElementById('btn-add-'+no);
+  if(addBtn) addBtn.textContent = '➕ Add to '+newQty;
+  // Update location grid
+  inp.value='';
+  inp.placeholder='Enter more quantity to add…';
+  const totEl = document.getElementById('ct-'+no);
+  if(totEl) totEl.textContent = tot;
   setTimeout(()=>{
     const srch = document.getElementById('cSrch');
     const results = document.getElementById('cResults');
-    if(srch){ srch.value=''; srch.focus(); }
+    if(srch){srch.value='';srch.focus();}
     if(results) results.innerHTML='<div class="empty">Type to search…</div>';
     drawRecentCount();
-  }, 400);
+  }, 600);
 }
 
-function saveAllCounts(no){ saveLocCount(no); }
+function saveAllCounts(no){ saveLocCount(no,'add'); }
 function clearAllCounts(no){ clearCount2(no); }
-function saveCount(no){ saveLocCount(no); }
+function saveCount(no){ saveLocCount(no,'add'); }
 
 function clearCount2(no){
   const c = getCount(no);

@@ -1688,8 +1688,13 @@ function stopScanner() {
 
 function handleBarcode(code) {
   stopScanner();
-  const found = A.find(a => a.barcode === code.trim() || a.no === code.trim());
-  if (!found) { snack('Barcode not found: ' + code); return; }
+  const scanned = code.trim();
+  // Search by article no OR any barcode in pipe-separated list
+  const found = A.find(a =>
+    a.no === scanned ||
+    (a.barcode && a.barcode.split('|').map(b => b.trim()).includes(scanned))
+  );
+  if (!found) { snack('Not found: ' + scanned); return; }
 
   if (currentTab === 'count') {
     // In Count tab — open count card directly

@@ -621,6 +621,9 @@ function showUploadErr(msg) {
    APP START / NAVIGATION
 ══════════════════════════════════════════════ */
 function startApp() {
+  // Preload ZXing in background so scanner opens instantly
+  setTimeout(() => loadBarcodeDetector(() => {}), 1500); // preload detector for instant scanning
+
   // Populate rack select in sheet
   const sel = document.getElementById('sheetRack');
   sel.innerHTML = '<option value="">No rack</option>';
@@ -1590,128 +1593,159 @@ function downloadCSV(rows, filename) {
 /* ══════════════════════════════════════════════
    BARCODE SCANNER
 ══════════════════════════════════════════════ */
-function openScanner() {
-  document.getElementById('scanner').classList.add('open');
-  document.getElementById('scannerHint').textContent = 'Loading scanner…';
-  loadZXing(startScanner);
+// Unified barcode scanner — uses BarcodeDetector on all platforms
+// On iOS: loads WASM polyfill for same speed as Android native
+let _detectorReady = false;
+let _detector = null;
+
+function loadBarcodeDetector(cb) {
+  if (_detectorReady) { cb(); return; }
+
+  const init = () => {
+    try {
+      _detector = new BarcodeDetector({
+        formats: ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code']
+      });
+      _detectorReady = true;
+      cb();
+    } catch(e) {
+      console.warn('BarcodeDetector init failed:', e);
+      cb(); // proceed anyway
+    }
+  };
+
+  if ('BarcodeDetector' in window) {
+    // Native — Android Chrome, Desktop Chrome
+    init();
+  } else {
+    // Load WASM polyfill — works on iOS Safari, iOS Chrome, Firefox
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@undecaf/barcode-detector-polyfill@0.9.21/dist/index.js';
+    s.onload = () => {
+      // Polyfill registers itself — now BarcodeDetector is available
+      init();
+    };
+    s.onerror = () => {
+      // Polyfill failed — fallback to ZXing
+      loadZXingFallback(cb);
+    };
+    document.head.appendChild(s);
+  }
 }
 
-function loadZXing(cb) {
+function loadZXingFallback(cb) {
   if (window.ZXing) { cb(); return; }
-  const s   = document.createElement('script');
-  s.src     = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
-  s.onload  = cb;
-  s.onerror = () => {
-    // ZXing failed — try native BarcodeDetector
-    document.getElementById('scannerHint').textContent = 'Using built-in scanner…';
-    startNativeScanner();
-  };
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+  s.onload = cb; s.onerror = cb;
   document.head.appendChild(s);
 }
 
-async function startScanner() {
-  const hint  = document.getElementById('scannerHint');
-  const video = document.getElementById('scannerVideo');
-
-  try {
-    // ZXing handles camera access and EAN-13 decoding (works iOS + Android)
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    hint.textContent = 'Starting camera…';
-
-    await codeReader.decodeFromConstraints(
-      { video: { facingMode: 'environment' } },
-      video,
-      (result, err) => {
-        if (result) {
-          codeReader.reset();
-          handleBarcode(result.getText());
-        }
-        // err is normal when no barcode in frame — ignore it
-      }
-    );
-
-    hint.textContent = 'Hold barcode inside the frame';
-
-    // Store reader for cleanup
-    scanStream = { _zxing: codeReader, getTracks: () => [] };
-
-  } catch(e) {
-    hint.textContent = 'Camera error: ' + e.message;
-    // Try native as last resort
-    startNativeScanner();
-  }
+function openScanner() {
+  document.getElementById('scanner').classList.add('open');
+  document.getElementById('scannerHint').textContent = _detectorReady ? 'Starting camera…' : 'Loading scanner…';
+  loadBarcodeDetector(startScanLoop);
 }
 
-async function startNativeScanner() {
+async function startScanLoop() {
   const hint  = document.getElementById('scannerHint');
   const video = document.getElementById('scannerVideo');
-
-  if (!('BarcodeDetector' in window)) {
-    hint.textContent = 'Scanner not supported on this device. Please type the barcode below.';
-    return;
-  }
 
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' }
+      video: {
+        facingMode: 'environment',
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
     });
     video.srcObject = scanStream;
     await video.play();
     hint.textContent = 'Hold barcode inside the frame';
-    startNativeScanLoop();
   } catch(e) {
     hint.textContent = 'Camera error: ' + e.message + '. Type barcode below.';
+    return;
+  }
+
+  if (_detector) {
+    // Fast path — BarcodeDetector (native or WASM polyfill)
+    const loop = async () => {
+      if (!document.getElementById('scanner').classList.contains('open')) return;
+      try {
+        const codes = await _detector.detect(video);
+        if (codes.length > 0) { handleBarcode(codes[0].rawValue); return; }
+      } catch(_) {}
+      scanRaf = requestAnimationFrame(loop);
+    };
+    loop();
+  } else if (window.ZXing) {
+    // ZXing fallback
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.UPC_A,
+    ]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, false);
+    const reader = new ZXing.BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 50 });
+    reader.decodeFromStream(scanStream, video, (result) => {
+      if (result) handleBarcode(result.getText());
+    });
+    scanStream = { _zxing: reader, _stream: scanStream, getTracks: () => scanStream.getTracks?.() || [] };
+  } else {
+    hint.textContent = 'Scanner failed. Type barcode number below.';
   }
 }
 
-function startNativeScanLoop() {
-  if (scanRaf) cancelAnimationFrame(scanRaf);
-  const video = document.getElementById('scannerVideo');
-  const det = new BarcodeDetector({
-    formats: ['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code','data_matrix']
-  });
-  const loop = async () => {
-    try {
-      const codes = await det.detect(video);
-      if (codes.length > 0) { handleBarcode(codes[0].rawValue); return; }
-    } catch(_) {}
-    scanRaf = requestAnimationFrame(loop);
-  };
-  loop();
-}
+function startScanner()     { openScanner(); }
+function startNativeScanner() { openScanner(); }
+function startZXingScanner()  { openScanner(); }
+function startNativeScanLoop() {}
+function loadZXing(cb) { loadBarcodeDetector(cb); }
 
 function stopScanner() {
-  // Fully stop scanner and camera
-  if (scanStream && scanStream._zxing) {
-    try { scanStream._zxing.reset(); } catch(_) {}
-    scanStream = null;
-  }
   if (scanRaf) { cancelAnimationFrame(scanRaf); scanRaf = null; }
-  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
-  const video = document.getElementById('scannerVideo');
-  if (video.srcObject) { try { video.srcObject.getTracks().forEach(t=>t.stop()); } catch(_){} video.srcObject = null; }
+  try {
+    if (scanStream) {
+      if (scanStream._zxing) scanStream._zxing.reset();
+      const tracks = scanStream._stream ? scanStream._stream.getTracks() : (scanStream.getTracks ? scanStream.getTracks() : []);
+      tracks.forEach(t => t.stop());
+      scanStream = null;
+    }
+    const video = document.getElementById('scannerVideo');
+    if (video.srcObject) { video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject = null; }
+  } catch(_) {}
   document.getElementById('scanner').classList.remove('open');
 }
 
 function pauseScanner() {
-  // Hide scanner UI but keep camera ready for next scan
+  // Hide scanner, pause loop — keep camera stream alive for fast resume
+  if (scanRaf) { cancelAnimationFrame(scanRaf); scanRaf = null; }
+  if (scanStream && scanStream._zxing) {
+    try { scanStream._zxing.reset(); } catch(_) {}
+  }
   document.getElementById('scanner').classList.remove('open');
-  // Don't stop stream — openScanner() will reuse it
 }
 
 function resumeScanner() {
-  // Reopen scanner immediately — reuse existing stream if possible
+  // Fast reopen — camera already on, just restart detect loop
+  const video = document.getElementById('scannerVideo');
   document.getElementById('scanner').classList.add('open');
   document.getElementById('scannerHint').textContent = 'Hold barcode inside the frame';
-  // If ZXing reader still active, it's already scanning
-  // If native loop was paused, restart it
-  if (scanStream && !scanStream._zxing && scanStream.getTracks) {
-    const video = document.getElementById('scannerVideo');
-    if (!video.srcObject) video.srcObject = scanStream;
-    startNativeScanLoop();
-  } else if (!scanStream) {
-    // Need to restart fully
-    loadZXing(startScanner);
+
+  if (video.srcObject && _detector) {
+    // Camera still running — just restart the detection loop
+    const loop = async () => {
+      if (!document.getElementById('scanner').classList.contains('open')) return;
+      try {
+        const codes = await _detector.detect(video);
+        if (codes.length > 0) { handleBarcode(codes[0].rawValue); return; }
+      } catch(_) {}
+      scanRaf = requestAnimationFrame(loop);
+    };
+    loop();
+  } else {
+    // Need full restart
+    openScanner();
   }
 }
 

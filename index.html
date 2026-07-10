@@ -1070,14 +1070,14 @@ function setFillCk(no, ck, btn) {
   }
 
   // Update stats bar
-  const yes  = A.filter(a => getRackSt(a.no).ck === 'yes').length;
-  const half = A.filter(a => getRackSt(a.no).ck === 'half').length;
-  const no   = A.filter(a => getRackSt(a.no).ck === 'no').length;
-  const done = yes + half + no;
+  const cntYes  = A.filter(a => getRackSt(a.no).ck === 'yes').length;
+  const cntHalf = A.filter(a => getRackSt(a.no).ck === 'half').length;
+  const cntNo   = A.filter(a => getRackSt(a.no).ck === 'no').length;
+  const cntDone = cntYes + cntHalf + cntNo;
   const stat = document.getElementById('ckStat');
   const bar  = document.getElementById('ckBar');
-  if (stat) stat.textContent = `✓${yes}  ½${half}  ✗${no}  — ${done} of ${A.length} checked`;
-  if (bar)  bar.style.width  = (A.length ? Math.round(done/A.length*100) : 0) + '%';
+  if (stat) stat.textContent = `✓${cntYes}  ½${cntHalf}  ✗${cntNo}  — ${cntDone} of ${A.length} checked`;
+  if (bar)  bar.style.width  = (A.length ? Math.round(cntDone/A.length*100) : 0) + '%';
 }
 
 /* ══════════════════════════════════════════════
@@ -1349,19 +1349,19 @@ function doCount(no, mode, drawRecentFn) {
    REPORTS TAB
 ══════════════════════════════════════════════ */
 function renderReports(el) {
-  const yes  = A.filter(a => getRackSt(a.no).ck === 'yes').length;
-  const half = A.filter(a => getRackSt(a.no).ck === 'half').length;
-  const no2  = A.filter(a => getRackSt(a.no).ck === 'no').length;
-  const unchk = A.length - yes - half - no2;
+  const rYes  = A.filter(a => getRackSt(a.no).ck === 'yes').length;
+  const rHalf = A.filter(a => getRackSt(a.no).ck === 'half').length;
+  const rNo   = A.filter(a => getRackSt(a.no).ck === 'no').length;
+  const unchk = A.length - rYes - rHalf - rNo;
   const counted = A.filter(a => { const c = getCount(a.no); return c.NS||c.OS||c.LG; }).length;
 
   el.innerHTML = `
     <div class="sec">Filling Check Summary</div>
     <table>
       <tr><th>Status</th><th>Count</th></tr>
-      <tr><td>✓ Yes — Filled</td><td style="color:var(--green);font-weight:700;">${yes}</td></tr>
-      <tr><td>½ Half filled</td><td style="color:var(--yellow);font-weight:700;">${half}</td></tr>
-      <tr><td>✗ No — Empty</td><td style="color:var(--red);font-weight:700;">${no2}</td></tr>
+      <tr><td>✓ Yes — Filled</td><td style="color:var(--green);font-weight:700;">${rYes}</td></tr>
+      <tr><td>½ Half filled</td><td style="color:var(--yellow);font-weight:700;">${rHalf}</td></tr>
+      <tr><td>✗ No — Empty</td><td style="color:var(--red);font-weight:700;">${rNo}</td></tr>
       <tr><td>Not checked</td><td>${unchk}</td></tr>
       <tr><td>Total articles</td><td>${A.length}</td></tr>
     </table>

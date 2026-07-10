@@ -235,10 +235,14 @@ tr:last-child td { border-bottom: none; }
   <div class="ul-box">
     <h2>📦 Load Inventory File</h2>
     <p>Upload your article master Excel or rack assignment CSV to begin.</p>
-    <label class="ul-btn">
-      📂 Upload File (.xlsx or .csv)
-      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleFileUpload(event)">
+    <label class="ul-btn" id="ulChooseBtn">
+      📂 Choose File (.xlsx or .csv)
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="onFileChosen(event)">
     </label>
+    <div id="ulFileInfo" style="display:none;background:#f5f0e8;border-radius:8px;padding:10px 12px;margin-top:8px;">
+      <div style="font-family:'Courier New',monospace;font-size:11px;color:#7a6e62;margin-bottom:6px;" id="ulFileName"></div>
+      <button id="ulGoBtn" onclick="startFileUpload()" style="width:100%;font-family:'Courier New',monospace;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:12px;border:none;border-radius:8px;background:#2d6a3f;color:#fff;cursor:pointer;">▶ Go — Load File</button>
+    </div>
     <div class="ul-fmt">article_master_data.xlsx · rack-assignment.csv</div>
     <div class="ul-err"  id="ulErr"></div>
     <div class="ul-prog" id="ulProg"></div>
@@ -460,11 +464,28 @@ function loadSession() {
 /* ══════════════════════════════════════════════
    FILE UPLOAD
 ══════════════════════════════════════════════ */
-function handleFileUpload(ev) {
+let _selectedFile = null;
+
+function onFileChosen(ev) {
   const file = ev.target.files[0];
+  if (!file) return;
+  _selectedFile = file;
+  document.getElementById('ulErr').style.display = 'none';
+  document.getElementById('ulFileName').textContent = '📄 ' + file.name + ' (' + Math.round(file.size/1024) + ' KB)';
+  document.getElementById('ulFileInfo').style.display = 'block';
+  document.getElementById('ulChooseBtn').textContent = '📂 Choose different file';
+}
+
+function startFileUpload() {
+  if (!_selectedFile) return;
+  handleFileUpload(_selectedFile);
+}
+
+function handleFileUpload(file) {
   if (!file) return;
   const err  = document.getElementById('ulErr');
   const prog = document.getElementById('ulProg');
+  document.getElementById('ulFileInfo').style.display = 'none';
   err.style.display  = 'none';
   prog.style.display = 'block';
   prog.textContent   = 'Reading ' + file.name + '…';
@@ -473,6 +494,7 @@ function handleFileUpload(ev) {
 
   if (ext === 'xlsx' || ext === 'xls') {
     loadSheetJS(() => {
+      document.getElementById('ulProg').textContent = 'Reading Excel file…';
       const reader = new FileReader();
       reader.onload = e => {
         try {
@@ -482,6 +504,7 @@ function handleFileUpload(ev) {
           processRows(rows, file.name);
         } catch(ex) { showUploadErr('Excel error: ' + ex.message); }
       };
+      reader.onerror = () => showUploadErr('Could not read the file. Please try again.');
       reader.readAsArrayBuffer(file);
     });
   } else if (ext === 'csv') {
@@ -1389,7 +1412,7 @@ function renderReports(el) {
       <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-bottom:10px;">Upload a rack-assignment.csv to update which articles are assigned to which racks.</div>
       <label class="dl-btn sf" style="display:block;text-align:center;cursor:pointer;">
         📋 Upload Rack Assignment CSV
-        <input type="file" accept=".csv" style="display:none;" onchange="handleFileUpload(event)">
+        <input type="file" accept=".csv" style="display:none;" onchange="onFileChosen(event)">
       </label>
     </div>
 

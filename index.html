@@ -1363,6 +1363,10 @@ function doCount(no, mode, drawRecentFn) {
   // Refresh recent list
   const fn = drawRecentFn || (card && card._drawRecent);
   if (fn) setTimeout(fn, 300);
+
+  // Show scan-next button so user can scan without closing
+  const countEl = document.getElementById('pg-count');
+  if (countEl && currentTab === 'count') showScanNextBtn(countEl);
 }
 
 /* ══════════════════════════════════════════════
@@ -1654,50 +1658,76 @@ async function startNativeScanner() {
     video.srcObject = scanStream;
     await video.play();
     hint.textContent = 'Hold barcode inside the frame';
-
-    const det = new BarcodeDetector({
-      formats: ['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code','data_matrix']
-    });
-
-    const loop = async () => {
-      try {
-        const codes = await det.detect(video);
-        if (codes.length > 0) { handleBarcode(codes[0].rawValue); return; }
-      } catch(_) {}
-      scanRaf = requestAnimationFrame(loop);
-    };
-    loop();
+    startNativeScanLoop();
   } catch(e) {
     hint.textContent = 'Camera error: ' + e.message + '. Type barcode below.';
   }
 }
 
+function startNativeScanLoop() {
+  if (scanRaf) cancelAnimationFrame(scanRaf);
+  const video = document.getElementById('scannerVideo');
+  const det = new BarcodeDetector({
+    formats: ['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code','data_matrix']
+  });
+  const loop = async () => {
+    try {
+      const codes = await det.detect(video);
+      if (codes.length > 0) { handleBarcode(codes[0].rawValue); return; }
+    } catch(_) {}
+    scanRaf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
 function stopScanner() {
-  // Stop ZXing reader if active
+  // Fully stop scanner and camera
   if (scanStream && scanStream._zxing) {
     try { scanStream._zxing.reset(); } catch(_) {}
     scanStream = null;
   }
-  // Stop native stream if active
   if (scanRaf) { cancelAnimationFrame(scanRaf); scanRaf = null; }
   if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
   const video = document.getElementById('scannerVideo');
-  if (video.srcObject) { video.srcObject = null; }
+  if (video.srcObject) { try { video.srcObject.getTracks().forEach(t=>t.stop()); } catch(_){} video.srcObject = null; }
   document.getElementById('scanner').classList.remove('open');
 }
 
+function pauseScanner() {
+  // Hide scanner UI but keep camera ready for next scan
+  document.getElementById('scanner').classList.remove('open');
+  // Don't stop stream — openScanner() will reuse it
+}
+
+function resumeScanner() {
+  // Reopen scanner immediately — reuse existing stream if possible
+  document.getElementById('scanner').classList.add('open');
+  document.getElementById('scannerHint').textContent = 'Hold barcode inside the frame';
+  // If ZXing reader still active, it's already scanning
+  // If native loop was paused, restart it
+  if (scanStream && !scanStream._zxing && scanStream.getTracks) {
+    const video = document.getElementById('scannerVideo');
+    if (!video.srcObject) video.srcObject = scanStream;
+    startNativeScanLoop();
+  } else if (!scanStream) {
+    // Need to restart fully
+    loadZXing(startScanner);
+  }
+}
+
 function handleBarcode(code) {
-  stopScanner();
+  pauseScanner();  // hide scanner but keep camera ready
   const scanned = code.trim();
-  // Search by article no OR any barcode in pipe-separated list
   const found = A.find(a =>
     a.no === scanned ||
     (a.barcode && a.barcode.split('|').map(b => b.trim()).includes(scanned))
   );
-  if (!found) { snack('Not found: ' + scanned); return; }
+  if (!found) {
+    snack('Not found: ' + scanned + ' — tap 📷 to scan again');
+    return;
+  }
 
   if (currentTab === 'count') {
-    // In Count tab — open count card directly
     const el = document.getElementById('pg-count');
     if (el) {
       const srch = el.querySelector('#countSearch');
@@ -1705,11 +1735,50 @@ function handleBarcode(code) {
       const results = el.querySelector('#countResults');
       if (results) results.innerHTML = '';
       openCountCard(found, el, el._drawRecent);
+      // Show scan-next button at top of count card
+      showScanNextBtn(el);
     }
   } else {
-    // All other tabs — open article sheet
     openSheet(found.no);
   }
+}
+
+function showScanNextBtn(parentEl) {
+  // Remove existing scan-next button if any
+  const existing = parentEl.querySelector('#scanNextBtn');
+  if (existing) existing.remove();
+
+  const btn = document.createElement('button');
+  btn.id = 'scanNextBtn';
+  btn.innerHTML = '📷 Scan next article';
+  btn.style.cssText = [
+    'width:100%',
+    'font-family:var(--mono)',
+    'font-size:11px',
+    'font-weight:700',
+    'text-transform:uppercase',
+    'padding:11px',
+    'border:none',
+    'border-radius:8px',
+    'background:var(--ink)',
+    'color:var(--paper)',
+    'cursor:pointer',
+    'margin-bottom:10px',
+    'letter-spacing:.04em',
+  ].join(';');
+  btn.onclick = () => {
+    // Clear results and resume scanner
+    const results = parentEl.querySelector('#countResults');
+    const srch = parentEl.querySelector('#countSearch');
+    if (results) results.innerHTML = '<div class="empty">Type to search…</div>';
+    if (srch) srch.value = '';
+    btn.remove();
+    resumeScanner();
+  };
+
+  // Insert before countResults
+  const results = parentEl.querySelector('#countResults');
+  if (results) results.parentNode.insertBefore(btn, results);
 }
 
 document.getElementById('manualBarcode').addEventListener('keydown', e => {

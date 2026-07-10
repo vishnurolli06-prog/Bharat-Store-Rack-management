@@ -585,7 +585,7 @@ function rDash(el){
     <div class="rg" id="dR"></div>
     <div class="sec">Top Alerts</div>
     <div id="dA"></div>
-    <div class="sec">½ Half-Filled Articles</div>
+    <div class="sec">Rack Filling Check — Issues</div>
     <div id="dH"></div>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button onclick="render('dash')" style="flex:1;font-family:'Courier New',monospace;font-size:11px;padding:10px;border:1px solid #e8e0d0;border-radius:8px;background:#fff;cursor:pointer;">↺ Refresh</button>
@@ -608,7 +608,7 @@ function rDash(el){
     });
     const showAll=document.createElement('button');
     showAll.style.cssText='width:100%;font-family:\'Courier New\',monospace;font-size:10px;padding:8px;border:1px solid #e8e0d0;border-radius:6px;background:#fff;cursor:pointer;margin-top:4px;';
-    const hCount=A.filter(a=>(E(a.no).ck||'')==='half').length+A.filter(a=>S(a)==='low'&&(E(a.no).ck||'')==='').length; showAll.textContent='⬇ Download half-filled report ('+hCount+' articles)';
+    const hCount=A.filter(a=>['half','no'].includes(E(a.no).ck||'')).length; showAll.textContent='⬇ Download Filling Check Report ('+hCount+' flagged)';
     showAll.onclick=expHalf;
     dH.appendChild(showAll);
   }
@@ -1017,7 +1017,7 @@ function rCount(el){
   function drawRecent(){
     const rec=el.querySelector('#cRecent');
     if(!rec)return;
-    const counted=A.filter(a=>{ const c=getCount(a.no); return c[countLoc]>0||c.ts; }).sort((a,b)=>(getCount(b.no).ts||'').localeCompare(getCount(a.no).ts||'')).slice(0,10);
+    const counted=A.filter(a=>{ const c=getCount(a.no); return (c['ts_'+countLoc]||c.ts); }).sort((a,b)=>(getCount(b.no)['ts_'+countLoc]||getCount(b.no).ts||'').localeCompare(getCount(a.no)['ts_'+countLoc]||getCount(a.no).ts||'')).slice(0,10);
     rec.innerHTML='';
     if(!counted.length){rec.innerHTML='<div class="empty">No articles counted yet for this location.</div>';return;}
     counted.forEach(a=>{
@@ -1074,7 +1074,7 @@ function makeCountCard(a){
 
   const inp = card.querySelector('#ci-'+a.no);
 
-  // Live update total display
+  // Live update total display — count data only
   inp.addEventListener('input', ()=>{
     const v = parseInt(inp.value)||0;
     const c2 = getCount(a.no);
@@ -1097,16 +1097,14 @@ function saveLocCount(no){
   const qty = inp.value==='' ? 0 : Math.max(0, parseInt(inp.value)||0);
   const c = getCount(no);
   c[countLoc] = qty;
-  c.ts = new Date().toISOString();
-  const tot = totalCount(no);
-  const a = A.find(x=>x.no===no);
-  const e = E(no);
-  e.qty = tot;
-  e.status = tot<=0?'out':a&&tot<a.wk?'low':'filled';
+  const nowStr = new Date().toISOString();
+  c['ts_'+countLoc] = nowStr;  // per-location timestamp
+  c.ts = nowStr;               // last updated overall
+  // COUNT is completely separate from rack filling check — do NOT touch ST
   save();
+  const tot = totalCount(no);
   const loc = LOCS.find(l=>l.code===countLoc);
   snack(qty+' saved for '+loc.label+' · total: '+tot);
-  // Move to next — clear search and focus
   setTimeout(()=>{
     const srch = document.getElementById('cSrch');
     const results = document.getElementById('cResults');
@@ -1126,10 +1124,7 @@ function clearCount2(no){
   c.ts = new Date().toISOString();
   const inp = document.getElementById('ci-'+no);
   if(inp){ inp.value=''; inp.focus(); }
-  const e = E(no);
-  const tot = totalCount(no);
-  e.qty = tot;
-  e.status = tot<=0?'out':'low';
+  // COUNT only — do NOT touch rack filling check data
   save();
   snack('Cleared '+LOCS.find(l=>l.code===countLoc)?.label);
 }
@@ -1147,51 +1142,72 @@ function drawRecentCount(){
 
 function expCountReport(){
   const counted=A.filter(a=>{ const c=getCount(a.no); return c.NS||c.OS||c.LG; });
-  if(!counted.length){snack('No counts recorded yet');return;}
+  if(!counted.length){snack('No counts recorded yet — use the Count tab to enter quantities');return;}
+
+  const now = new Date();
+  const downloadedAt = now.toLocaleString('de-DE');
 
   const rows=[
-    ['Inventory Count Report (New Shop / Old Shop / Lager) — '+new Date().toLocaleDateString('de-DE'),'','','','','','','','',''],
+    ['Inventory Count Report — Bharat Grocery Store','','','','','','','','','','',''],
+    ['Downloaded: '+downloadedAt,'','','','','','','','','','',''],
+    ['Total articles counted: '+counted.length+' of '+A.length,'','','','','','','','','','',''],
     [''],
-    ['Article No','Name','Category','Rack','New Shop','Old Shop','Lager','TOTAL','Weekly Need','Status'],
+    ['Article No','Name','Category','Rack','New Shop','Old Shop','Lager','TOTAL','Weekly Need','Status','NS Updated','OS Updated','LG Updated','Last Updated'],
   ];
 
-  // Summary row
   let totNS=0,totOS=0,totLG=0,totAll=0;
-  counted.sort((a,b)=>a.grp.localeCompare(b.grp)||a.name.localeCompare(b.name)).forEach(a=>{
-    const c=getCount(a.no),e=E(a.no);
-    const ns=c.NS||0, os=c.OS||0, lg=c.LG||0, tot=ns+os+lg;
-    totNS+=ns;totOS+=os;totLG+=lg;totAll+=tot;
-    const status=tot<=0?'OUT':a.wk>0&&tot<a.wk?'LOW':'OK';
-    rows.push([a.no,a.name,a.grp,e.rack||'',ns,os,lg,tot,a.wk,status]);
-  });
+  counted
+    .sort((a,b)=>a.grp.localeCompare(b.grp)||a.name.localeCompare(b.name))
+    .forEach(a=>{
+      const c=getCount(a.no), e=E(a.no);
+      const ns=c.NS||0, os=c.OS||0, lg=c.LG||0, tot=ns+os+lg;
+      totNS+=ns; totOS+=os; totLG+=lg; totAll+=tot;
+      const status = tot<=0?'OUT' : a.wk>0&&tot<a.wk?'LOW' : 'OK';
+      // Parse timestamp
+      function fmtTs(ts){
+        if(!ts) return '';
+        try{
+          const d=new Date(ts);
+          return d.toLocaleDateString('de-DE')+' '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+        }catch(_){return '';}
+      }
+      const nsTs = fmtTs(c['ts_NS']);
+      const osTs = fmtTs(c['ts_OS']);
+      const lgTs = fmtTs(c['ts_LG']);
+      const lastTs = fmtTs(c.ts);
+      rows.push([a.no, a.name, a.grp, e.rack||'', ns, os, lg, tot, a.wk, status, nsTs, osTs, lgTs, lastTs]);
+    });
+
+  // Totals row
+  rows.push(['','','','TOTAL',totNS,totOS,totLG,totAll,'','','','','','']);
   rows.push(['']);
-  rows.push(['TOTAL','','','',totNS,totOS,totLG,totAll,'','']);
 
   // Per-location summary
-  rows.push(['']);
-  rows.push(['=== Per Location Summary ===','','','','','','','','','']);
-  rows.push(['Location','Articles Counted','Total Units','','','','','','','']);
-  [
-    {code:'NS',label:'New Shop'},
-    {code:'OS',label:'Old Shop'},
-    {code:'LG',label:'Lager'},
-  ].forEach(loc=>{
+  rows.push(['=== Per Location Summary ===','','','','','','','','','','','']);
+  rows.push(['Location','Articles Counted','Total Units','','','','','','','','','']);
+  LOCS.forEach(loc=>{
     const arts=counted.filter(a=>getCount(a.no)[loc.code]>0);
     const units=arts.reduce((s,a)=>s+(getCount(a.no)[loc.code]||0),0);
-    rows.push([loc.label,arts.length,units,'','','','','','','']);
+    rows.push([loc.label, arts.length, units,'','','','','','','','','']);
   });
+  rows.push(['']);
 
   // Low stock alert
-  const low=counted.filter(a=>{ const tot=totalCount(a.no); return a.wk>0&&tot<a.wk&&tot>0; }).sort((a,b)=>(b.wkrev||0)-(a.wkrev||0));
+  const low=counted
+    .filter(a=>{ const tot=totalCount(a.no); return a.wk>0&&tot<a.wk&&tot>0; })
+    .sort((a,b)=>(b.wkrev||0)-(a.wkrev||0));
   if(low.length){
-    rows.push(['']);
-    rows.push(['=== LOW STOCK (total < weekly need) ===','','','','','','','','','']);
-    rows.push(['Article No','Name','Rack','New Shop','Old Shop','Lager','TOTAL','Weekly Need','Shortfall','Wk Revenue']);
-    low.forEach(a=>{ const c=getCount(a.no),e=E(a.no),tot=totalCount(a.no); rows.push([a.no,a.name,e.rack||'',c.NS||0,c.OS||0,c.LG||0,tot,a.wk,a.wk-tot,Math.round(a.wkrev||0)]); });
+    rows.push(['=== LOW STOCK — Total below weekly need ('+low.length+' articles) ===','','','','','','','','','','','']);
+    rows.push(['Article No','Name','Rack','New Shop','Old Shop','Lager','TOTAL','Weekly Need','Shortfall','Wk Revenue (EUR)','NS Updated','OS Updated','LG Updated','Last Updated']);
+    low.forEach(a=>{
+      const c=getCount(a.no), e=E(a.no), tot=totalCount(a.no);
+      function fmtTs2(ts){ if(!ts)return''; try{ const d=new Date(ts); return d.toLocaleDateString('de-DE')+' '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }catch(_){return'';} }
+      rows.push([a.no, a.name, e.rack||'', c.NS||0, c.OS||0, c.LG||0, tot, a.wk, a.wk-tot, Math.round(a.wkrev||0), fmtTs2(c['ts_NS']), fmtTs2(c['ts_OS']), fmtTs2(c['ts_LG']), fmtTs2(c.ts)]);
+    });
   }
 
   dl(rows,'stock-count-'+td()+'.csv');
-  snack('Count report downloaded ✓');
+  snack('Count report downloaded — '+counted.length+' articles ✓');
 }
 
 // INIT

@@ -304,6 +304,10 @@ tr:last-child td { border-bottom: none; }
     </div>
     <div class="field"><label>Qty in rack</label><input type="number" id="sheetQty" min="0" placeholder="0"></div>
     <div class="field"><label>Expiry date</label><input type="date" id="sheetExpiry"></div>
+    <div class="field">
+      <label>Staff Note</label>
+      <input type="text" id="sheetNote" placeholder="e.g. Check expiry, Reorder pending…" style="font-size:14px;padding:10px;border:1.5px solid var(--line);border-radius:8px;">
+    </div>
     <div class="btn-row">
       <button class="btn g" onclick="markArticle('filled')">✓ Filled</button>
       <button class="btn r" onclick="markArticle('out')">✗ Out of stock</button>
@@ -316,7 +320,10 @@ tr:last-child td { border-bottom: none; }
 <div class="scanner" id="scanner">
   <div class="scanner-top">
     <span style="color:#fff;font-family:var(--mono);font-size:12px;">SCAN BARCODE</span>
-    <button onclick="stopScanner()">✕ Close</button>
+    <div style="display:flex;gap:8px;">
+      <button id="torchBtn" onclick="toggleTorch()" style="display:none;">🔦 Torch</button>
+      <button onclick="stopScanner()">✕ Close</button>
+    </div>
   </div>
   <div style="position:relative;flex:1;">
     <video id="scannerVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
@@ -440,6 +447,33 @@ function saveAll() {
     localStorage.setItem('bgs-c',  JSON.stringify(COUNTS));
     localStorage.setItem('bgs-si', JSON.stringify(SESSION));
   } catch(e) { console.warn('Save failed', e); }
+}
+
+function saveSnapshot() {
+  // Save a weekly snapshot for history comparison
+  try {
+    const snap = {
+      date:    new Date().toLocaleDateString('de-DE'),
+      ts:      new Date().toISOString(),
+      counts:  JSON.parse(JSON.stringify(COUNTS)),
+      rack_st: JSON.parse(JSON.stringify(RACK_ST)),
+      yes:     A.filter(a=>getRackSt(a.no).ck==='yes').length,
+      half:    A.filter(a=>getRackSt(a.no).ck==='half').length,
+      no:      A.filter(a=>getRackSt(a.no).ck==='no').length,
+      counted: A.filter(a=>{ const c=getCount(a.no); return c.NS||c.OS||c.LG; }).length,
+    };
+    const hist = JSON.parse(localStorage.getItem('bgs-hist')||'[]');
+    // Keep last 4 snapshots
+    hist.unshift(snap);
+    if (hist.length > 4) hist.splice(4);
+    localStorage.setItem('bgs-hist', JSON.stringify(hist));
+    snack('Session snapshot saved ✓');
+  } catch(e) { snack('Could not save snapshot'); }
+}
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('bgs-hist')||'[]'); }
+  catch(_) { return []; }
 }
 
 function loadSession() {
@@ -567,13 +601,16 @@ function processRows(rows, fname) {
       const no = String(r['BharatArticle_No'] || '').replace('.0','').trim();
       if (!no) return;
       parsed.push({
-        no,   grp,
+        no, grp,
         name:    String(r['BharatArticle_Name']  || '').trim(),
         wk:      parseFloat(r['52WK_RR'])         || 0,
         wkrev:   parseFloat(r['WEEKLY_AVG_REVENUE']) || 0,
         price:   parseFloat(r['Normal_Price'])    || 0,
         barcode: String(r['BARCODE'] || '').trim(),
         stock:   parseFloat(r['REM_STK'])         || 0,
+        abc:     '',   // set after all articles loaded
+        minStock: 0,   // minimum stock level
+        note:    '',   // staff note
       });
     });
   } else if (isRackCSV) {
@@ -602,6 +639,31 @@ function processRows(rows, fname) {
 
   if (!parsed.length) { showUploadErr('No articles found in file.'); return; }
 
+  // ABC classification by weekly revenue
+  const sorted_rev = [...parsed].sort((a,b) => (b.wkrev||0) - (a.wkrev||0));
+  const totalRev   = sorted_rev.reduce((s,a) => s + (a.wkrev||0), 0);
+  let cumRev = 0;
+  sorted_rev.forEach(a => {
+    cumRev += (a.wkrev||0);
+    const pct = totalRev > 0 ? cumRev/totalRev : 1;
+    a.abc = pct <= 0.7 ? 'A' : pct <= 0.9 ? 'B' : 'C';
+  });
+  // Set minStock = weekly need * 1.5 as default
+  parsed.forEach(a => { if (!a.minStock) a.minStock = Math.ceil((a.wk||0) * 1.5); });
+  // Restore saved notes/minStock from previous session
+  const savedArticles = localStorage.getItem('bgs-a');
+  if (savedArticles) {
+    try {
+      const prev = JSON.parse(savedArticles);
+      prev.forEach(p => {
+        const a = parsed.find(x => x.no === p.no);
+        if (a) {
+          if (p.note)     a.note     = p.note;
+          if (p.minStock) a.minStock = p.minStock;
+        }
+      });
+    } catch(_) {}
+  }
   A = parsed;
   SESSION = { filename: fname, count: parsed.length, loadedAt: new Date().toLocaleString('de-DE') };
   saveAll();
@@ -824,6 +886,9 @@ function renderArticles(el) {
       <button class="pill ${artFilter==='no'?'active':''}"       data-f="no">✗ No</button>
       <button class="pill ${artFilter==='unchk'?'active':''}"    data-f="unchk">Unchecked</button>
       <button class="pill ${artFilter==='norack'?'active':''}"   data-f="norack">No rack</button>
+      <button class="pill ${artFilter==='A'?'active':''}"         data-f="A">A items</button>
+      <button class="pill ${artFilter==='B'?'active':''}"         data-f="B">B items</button>
+      <button class="pill ${artFilter==='C'?'active':''}"         data-f="C">C items</button>
     </div>
     <div id="artList"></div>
   `;
@@ -836,7 +901,7 @@ function renderArticles(el) {
       if (artFilter === 'norack'  && st.rack) return false;
       if (artFilter === 'unchk'   && st.ck)   return false;
       if (['yes','half','no'].includes(artFilter) && st.ck !== artFilter) return false;
-      if (artFilter === 'all' || artFilter === 'norack' || artFilter === 'unchk') {}
+      if (['A','B','C'].includes(artFilter) && a.abc !== artFilter) return false;
       if (q && !a.name.toLowerCase().includes(q) && !a.no.includes(q) && !a.barcode.includes(q)) return false;
       return true;
     });
@@ -893,12 +958,15 @@ function makeArticleRow(a) {
   const ckMap = { yes:'filled', half:'low', no:'out', '':'unchecked' };
   const dotClass = ckMap[st.ck || ''];
   const row = document.createElement('div'); row.className = 'ar';
+  const abcColor = a.abc==='A'?'var(--red)':a.abc==='B'?'var(--yellow)':'var(--gray)';
+  const noteIcon = a.note ? ' 📝' : '';
   row.innerHTML = `
     <div class="dot ${dotClass}"></div>
     <div class="ar-info">
-      <div class="ar-name">${a.name}</div>
+      <div class="ar-name">${a.name}${noteIcon}</div>
       <div class="ar-sub">#${a.no} · wk:${a.wk}${st.ck?' · '+st.ck:''}${a.wkrev?' · €'+Math.round(a.wkrev)+'/wk':''}</div>
     </div>
+    ${a.abc?`<span style="font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;background:${abcColor};color:#fff;flex-shrink:0;">${a.abc}</span>`:''}
     ${st.rack ? `<span class="rack-tag">${st.rack}</span>` : ''}
     <span style="color:var(--line);font-size:14px;">›</span>
   `;
@@ -925,6 +993,8 @@ function openSheet(no) {
   document.getElementById('sheetRack').value   = st.rack   || '';
   document.getElementById('sheetQty').value    = '';
   document.getElementById('sheetExpiry').value = st.expiry || '';
+  const artObj = A.find(x=>x.no===no);
+  document.getElementById('sheetNote').value   = artObj?.note || '';
   document.getElementById('articleSheet').classList.add('open');
   document.getElementById('sheetOverlay').classList.add('open');
 }
@@ -943,11 +1013,14 @@ document.getElementById('sheetRack').onchange = e => {
 
 function markArticle(status) {
   if (!sheetArticle) return;
-  const st   = getRackSt(sheetArticle);
+  const st    = getRackSt(sheetArticle);
   const ckRev = { filled:'yes', out:'no' };
   st.ck   = ckRev[status] || '';
   st.rack = document.getElementById('sheetRack').value;
   st.ts   = new Date().toLocaleString('de-DE');
+  // Save note
+  const artObj = A.find(x=>x.no===sheetArticle);
+  if (artObj) artObj.note = document.getElementById('sheetNote').value.trim();
   saveAll();
   snack(status === 'filled' ? 'Marked ✓ Yes' : 'Marked ✗ No');
   closeSheet();
@@ -1121,8 +1194,12 @@ function renderCount(el) {
           ${l.label}
         </button>`).join('')}
     </div>
-    <div style="font-family:var(--mono);font-size:11px;color:var(--gray);margin-bottom:10px;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--gray);margin-bottom:6px;">
       Counting: <b style="color:${LOCS.find(l=>l.code===countLoc)?.color}">${LOCS.find(l=>l.code===countLoc)?.label}</b>
+    </div>
+    <div style="background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+      ${LOCS.map(l=>{ const cnt=A.filter(a=>getCount(a.no)[l.code]>0).length; const pct=Math.round(cnt/A.length*100); return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><div style="font-family:var(--mono);font-size:9px;color:'+l.color+';width:70px;text-transform:uppercase;">'+l.label+'</div><div style="flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+l.color+';"></div></div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);width:55px;text-align:right;">'+cnt+'/'+A.length+'</div>'; }).join('</div>')}
+      </div>
     </div>
     <div class="sbar">
       <input id="countSearch" type="text" placeholder="Search article by name or number…" autocomplete="off">
@@ -1324,6 +1401,15 @@ function openCountCard(a, parentEl, drawRecentFn) {
   card._drawRecent = drawRecentFn;
 }
 
+function quickAdd(no, amount) {
+  const inp = document.getElementById('countInp-' + no);
+  if (!inp) return;
+  const cur = parseInt(inp.value) || 0;
+  inp.value  = cur + amount;
+  inp.dispatchEvent(new Event('input')); // trigger live total update
+  inp.focus();
+}
+
 function doCount(no, mode, drawRecentFn) {
   const inp = document.getElementById('countInp-' + no);
   if (!inp) return;
@@ -1420,6 +1506,22 @@ function renderReports(el) {
       </label>
     </div>
 
+    <div class="sec" style="margin-top:18px;">History</div>
+    <div id="repHistory"></div>
+
+    <div class="sec" style="margin-top:18px;">Backup & Restore</div>
+    <div style="background:var(--cream);border:1px solid var(--line);border-radius:var(--r);padding:12px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px;">Export full session</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-bottom:8px;">Downloads all articles, counts, fill check and notes as a backup file. Share via WhatsApp or email.</div>
+      <button class="dl-btn gn" onclick="exportBackup()">💾 Export Backup (.json)</button>
+      <div style="font-size:13px;font-weight:600;margin:12px 0 6px;">Restore from backup</div>
+      <label class="dl-btn lt" style="display:block;text-align:center;cursor:pointer;margin-top:0;">
+        📂 Import Backup (.json)
+        <input type="file" accept=".json" style="display:none;" onchange="importBackup(event)">
+      </label>
+    </div>
+    <button class="dl-btn sf" style="margin-top:8px;" onclick="saveSnapshot()">📸 Save Weekly Snapshot</button>
+
     <div class="sec" style="margin-top:18px;">Session Info</div>
     <table>
       <tr><td>File</td><td style="font-family:var(--mono);font-size:11px;">${SESSION.filename||'—'}</td></tr>
@@ -1457,33 +1559,33 @@ function exportFillCheck() {
     [''],
   ];
 
-  const hdr = ['Article No', 'Name', 'Category', 'Rack', 'Weekly Need', 'Weekly Revenue (EUR)'];
+  const hdr = ['Article No', 'Name', 'Category', 'Rack', 'ABC', 'Weekly Need', 'Wk Revenue (EUR)', 'Revenue at Risk (EUR)', 'Note'];
 
   if (half.length) {
     rows.push(['=== ½ HALF FILLED (' + half.length + ' articles) ===', '', '', '', '', '']);
     rows.push(hdr);
-    half.forEach(a => { const st = getRackSt(a.no); rows.push([a.no, a.name, a.grp, st.rack||'', a.wk, Math.round(a.wkrev||0)]); });
+    half.forEach(a => { const st = getRackSt(a.no); rows.push([a.no, a.name, a.grp, st.rack||'', a.abc||'', a.wk, Math.round(a.wkrev||0), Math.round((a.wkrev||0)*0.5), a.note||'']); });
     rows.push(['']);
   }
 
   if (no.length) {
     rows.push(['=== ✗ EMPTY / NOT STOCKED (' + no.length + ' articles) ===', '', '', '', '', '']);
     rows.push(hdr);
-    no.forEach(a => { const st = getRackSt(a.no); rows.push([a.no, a.name, a.grp, st.rack||'', a.wk, Math.round(a.wkrev||0)]); });
+    no.forEach(a => { const st = getRackSt(a.no); rows.push([a.no, a.name, a.grp, st.rack||'', a.abc||'', a.wk, Math.round(a.wkrev||0), Math.round(a.wkrev||0), a.note||'']); });
     rows.push(['']);
   }
 
   if (yes.length) {
     rows.push(['=== ✓ YES — FILLED (' + yes.length + ' articles) ===', '', '', '', '', '']);
     rows.push(hdr);
-    yes.forEach(a => { const st = getRackSt(a.no); rows.push([a.no, a.name, a.grp, st.rack||'', a.wk, Math.round(a.wkrev||0)]); });
+    yes.forEach(a => { const st = getRackSt(a.no); rows.push([a.no, a.name, a.grp, st.rack||'', a.abc||'', a.wk, Math.round(a.wkrev||0), 0, a.note||'']); });
     rows.push(['']);
   }
 
   if (unchk.length) {
     rows.push(['=== NOT YET CHECKED (' + unchk.length + ' articles) ===', '', '', '', '', '']);
     rows.push(hdr);
-    unchk.slice(0,100).forEach(a => { const st = getRackSt(a.no); rows.push([a.no, a.name, a.grp, st.rack||'', a.wk, Math.round(a.wkrev||0)]); });
+    unchk.slice(0,100).forEach(a => { const st = getRackSt(a.no); rows.push([a.no, a.name, a.grp, st.rack||'', a.abc||'', a.wk, Math.round(a.wkrev||0), Math.round((a.wkrev||0)*0.5), a.note||'']); });
     if (unchk.length > 100) rows.push(['... and ' + (unchk.length-100) + ' more not checked', '', '', '', '', '']);
   }
 
@@ -1582,6 +1684,70 @@ function exportRefill() {
   snack('Refill list downloaded ✓');
 }
 
+function exportBackup() {
+  const backup = {
+    version:  2,
+    exported: new Date().toISOString(),
+    session:  SESSION,
+    articles: A,
+    rack_st:  RACK_ST,
+    counts:   COUNTS,
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'bgs-backup-' + today() + '.json';
+  a.click();
+  snack('Backup exported ✓');
+}
+
+function importBackup(ev) {
+  const file = ev.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const bk = JSON.parse(e.target.result);
+      if (!bk.articles || !Array.isArray(bk.articles)) { snack('Invalid backup file'); return; }
+      if (!confirm('Restore this backup? Current session will be replaced.\n\nFile: ' + (bk.session?.filename||'?') + '\nSaved: ' + (bk.exported?new Date(bk.exported).toLocaleDateString('de-DE'):'?'))) return;
+      A       = bk.articles;
+      RACK_ST = bk.rack_st  || {};
+      COUNTS  = bk.counts   || {};
+      SESSION = bk.session  || {};
+      saveAll();
+      snack('Backup restored — ' + A.length + ' articles ✓');
+      renderTab(currentTab);
+    } catch(ex) { snack('Restore failed: ' + ex.message); }
+  };
+  reader.readAsText(file);
+}
+
+function renderHistory(containerEl) {
+  const hist = loadHistory();
+  if (!hist.length) { containerEl.innerHTML = '<div class="empty" style="padding:8px 0;">No snapshots yet — tap Save Weekly Snapshot after completing a session.</div>'; return; }
+  containerEl.innerHTML = '';
+  hist.forEach((s, i) => {
+    const prev = hist[i+1];
+    const div  = document.createElement('div');
+    div.style.cssText = 'background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;';
+    const yDiff = prev ? (s.yes  - prev.yes)  : 0;
+    const cDiff = prev ? (s.counted - prev.counted) : 0;
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:600;">${s.date}</div>
+        ${i===0?'<span style="font-family:var(--mono);font-size:9px;background:var(--gn-bg);color:var(--green);padding:2px 7px;border-radius:8px;">Latest</span>':''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
+        <div style="text-align:center;padding:6px 4px;background:var(--gn-bg);border-radius:6px;"><div style="font-size:15px;font-weight:800;color:var(--green);">${s.yes}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">Yes</div></div>
+        <div style="text-align:center;padding:6px 4px;background:var(--yw-bg);border-radius:6px;"><div style="font-size:15px;font-weight:800;color:var(--yellow);">${s.half}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">Half</div></div>
+        <div style="text-align:center;padding:6px 4px;background:var(--rd-bg);border-radius:6px;"><div style="font-size:15px;font-weight:800;color:var(--red);">${s.no}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">No</div></div>
+        <div style="text-align:center;padding:6px 4px;background:var(--cream);border-radius:6px;"><div style="font-size:15px;font-weight:800;">${s.counted}</div><div style="font-family:var(--mono);font-size:9px;color:var(--gray);">Counted</div></div>
+      </div>
+      ${prev?`<div style="font-family:var(--mono);font-size:10px;color:var(--gray);margin-top:6px;">vs prev: Yes ${yDiff>=0?'+':''}${yDiff} · Counted ${cDiff>=0?'+':''}${cDiff}</div>`:''}
+    `;
+    containerEl.appendChild(div);
+  });
+}
+
 function downloadCSV(rows, filename) {
   const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
   const a   = document.createElement('a');
@@ -1662,6 +1828,7 @@ async function startScanLoop() {
     video.srcObject = scanStream;
     await video.play();
     hint.textContent = 'Hold barcode inside the frame';
+    document.getElementById('torchBtn').style.display = '';
   } catch(e) {
     hint.textContent = 'Camera error: ' + e.message + '. Type barcode below.';
     return;
@@ -1747,6 +1914,21 @@ function resumeScanner() {
     // Need full restart
     openScanner();
   }
+}
+
+let _torchOn = false;
+async function toggleTorch() {
+  try {
+    const video = document.getElementById('scannerVideo');
+    const stream = video.srcObject;
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    const caps  = track.getCapabilities();
+    if (!caps.torch) { snack('Torch not available on this device'); return; }
+    _torchOn = !_torchOn;
+    await track.applyConstraints({ advanced: [{ torch: _torchOn }] });
+    document.getElementById('torchBtn').textContent = _torchOn ? '🔦 Off' : '🔦 Torch';
+  } catch(e) { snack('Torch error: ' + e.message); }
 }
 
 function handleBarcode(code) {
